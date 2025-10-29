@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "frontend",
+  "name": "frontend",
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -43,6 +43,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "clerkPublishableKey": "pk_test_cmVuZXdlZC1hbnRlbG9wZS0xMS5jbGVyay5hY2NvdW50cy5kZXYk"
     }
   }
 }

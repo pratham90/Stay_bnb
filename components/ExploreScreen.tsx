@@ -23,18 +23,24 @@ interface ExploreScreenProps {
 }
 
 export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCity, setSelectedCity] = useState('New York');
   const [favorites, setFavorites] = useState<Set<number>>(new Set([1, 3]));
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const categories = ['All', 'Amazing views', 'Beachfront', 'Cabins', 'Trending', 'Luxury'];
+  const cities = [
+    { name: 'New York', image: 'https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80' },
+    { name: 'Miami', image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80' },
+    { name: 'Chicago', image: 'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=400&q=80' },
+    { name: 'Malibu', image: 'https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&w=400&q=80' },
+    { name: 'Aspen', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&q=80' },
+  ];
 
-  // Animation refs for chips and cards
-  const chipAnim = useRef(categories.map(() => new Animated.Value(0))).current;
+  // Animation refs for cities and cards
+  const cityAnim = useRef(cities.map(() => new Animated.Value(0))).current;
   const cardAnim = useRef([1,2,3,4,5].map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
-    Animated.stagger(80, chipAnim.map(anim =>
+    Animated.stagger(80, cityAnim.map(anim =>
       Animated.timing(anim, {
         toValue: 1,
         duration: 350,
@@ -48,8 +54,9 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
         useNativeDriver: true,
       })
     )).start();
-  }, [chipAnim, cardAnim]);
+  }, [cityAnim, cardAnim]);
 
+  // Filter listings by selected city
   const listings: Listing[] = [
     {
       id: 1,
@@ -138,7 +145,7 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
           <View style={styles.searchInputContainer}>
             <Search size={20} color="#888" style={styles.searchIcon} />
             <TextInput
-              placeholder="Search destinations"
+              placeholder={`Search experiences in ${selectedCity}`}
               style={styles.searchInput}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
@@ -150,29 +157,30 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
         </View>
       </View>
 
-      {/* Categories with animation */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-        {categories.map((category, idx) => (
+      {/* City selector with animation */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.citiesScroll}>
+        {cities.map((city, idx) => (
           <Animated.View
-            key={category}
+            key={city.name}
             style={{
-              opacity: chipAnim[idx],
-              transform: [{ translateY: chipAnim[idx].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+              opacity: cityAnim[idx],
+              transform: [{ scale: cityAnim[idx].interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
             }}
           >
             <TouchableOpacity
-              style={[styles.categoryChip, selectedCategory === category && styles.categoryChipSelected]}
-              onPress={() => setSelectedCategory(category)}
+              style={[styles.cityChip, selectedCity === city.name && styles.cityChipSelected]}
+              onPress={() => setSelectedCity(city.name)}
             >
-              <Text style={[styles.categoryText, selectedCategory === category && styles.categoryTextSelected]}>{category}</Text>
+              <Image source={{ uri: city.image }} style={styles.cityImage} />
+              <Text style={[styles.cityText, selectedCity === city.name && styles.cityTextSelected]}>{city.name}</Text>
             </TouchableOpacity>
           </Animated.View>
         ))}
       </ScrollView>
 
-      {/* Listings Grid with animation */}
+      {/* Experiences Grid with animation */}
       <ScrollView style={styles.listingsScroll}>
-        {listings.map((listing, idx) => (
+        {listings.filter(l => l.location.includes(selectedCity)).map((listing, idx) => (
           <Animated.View
             key={listing.id}
             style={{
@@ -263,31 +271,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     borderRadius: 24,
   },
-  categoriesScroll: {
+  citiesScroll: {
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  cityChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 18,
     backgroundColor: '#f3f4f6',
-    marginRight: 8,
+    marginRight: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  categoryChipSelected: {
+  cityChipSelected: {
     backgroundColor: '#2dd4bf',
     shadowColor: '#2dd4bf',
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
-  categoryText: {
+  cityImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 4,
+  },
+  cityText: {
     color: '#222',
     fontWeight: '500',
+    fontSize: 15,
   },
-  categoryTextSelected: {
+  cityTextSelected: {
     color: '#fff',
+    fontWeight: 'bold',
   },
   listingsScroll: {
     flex: 1,
