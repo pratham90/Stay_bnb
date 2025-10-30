@@ -21,12 +21,20 @@ export default function AuthScreen() {
       if (!signIn.isLoaded) throw new Error('SignIn not loaded');
       const res = await signIn.signIn.create({ identifier: email, password });
       if (res.status === 'complete') {
-        await signIn.setActive({ session: res.createdSessionId });
+        // Only set active if not already active
+        if (signIn.sessionId !== res.createdSessionId) {
+          await signIn.setActive({ session: res.createdSessionId });
+        }
       } else {
         setError('Login failed.');
       }
     } catch (err: any) {
-      setError(err?.errors?.[0]?.message || err?.message || 'Login error');
+      // If error is session already exists, ignore and continue
+      if (err?.message?.includes('session already exists')) {
+        setError('You are already logged in.');
+      } else {
+        setError(err?.errors?.[0]?.message || err?.message || 'Login error');
+      }
     }
     setLoading(false);
   };
