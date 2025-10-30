@@ -13,7 +13,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const clerkPubKey = Constants.expoConfig?.extra?.clerkPublishableKey;
+  const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
