@@ -1,14 +1,43 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { Image } from 'expo-image';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Animated, Easing } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+// ...existing code...
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
 
 export default function Message() {
+  const insets = useSafeAreaInsets();
+  // Animation refs
+  const headerSlideAnim = useRef(new Animated.Value(-60)).current;
+  const headerFadeAnim = useRef(new Animated.Value(0)).current;
+  const listFadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(headerSlideAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.exp),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerFadeAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.out(Easing.exp),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(listFadeAnim, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.exp),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [headerSlideAnim, headerFadeAnim, listFadeAnim]);
+
   const messages = [
     {
       id: 1,
@@ -66,8 +95,12 @@ export default function Message() {
   }, [anims]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Messages</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Animated Elegant Header */}
+        <View style={{ paddingTop: insets.top || 16, paddingHorizontal: 18, paddingBottom: 8 }}>
+    <Text style={styles.msgHeaderTitle}>Messages</Text>
+        </View>
+      {/* Search Bar */}
       <View style={styles.searchBarRow}>
         <TextInput
           style={styles.searchInput}
@@ -76,7 +109,8 @@ export default function Message() {
           onChangeText={setSearch}
         />
       </View>
-      <View style={styles.listContainer}>
+      {/* Animated Message List */}
+      <Animated.View style={[styles.listContainer, { opacity: listFadeAnim }]}> 
         {messages.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.lastMessage.toLowerCase().includes(search.toLowerCase())).map((msg, idx) => (
           <Animated.View
             key={msg.id}
@@ -105,38 +139,83 @@ export default function Message() {
             </TouchableOpacity>
           </Animated.View>
         ))}
-      </View>
-    </View>
+      </Animated.View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: 16,
+    backgroundColor: '#f8fafc',
   },
-  header: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginLeft: 20,
-    marginBottom: 8,
-    color: '#222',
+  headerShadow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 2,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    backgroundColor: 'transparent',
+    marginBottom: 2,
+  },
+  msgHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    minHeight: 74,
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  msgHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  msgHeaderTitle: {
+    fontWeight: '600',
+    fontSize: 25,
+    color: '#000000ff',
+    letterSpacing: 0.2,
+    marginLeft: 2,
+    textShadowColor: 'rgba(0,0,0,0.10)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  msgHeaderBtn: {
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    borderRadius: 16,
+    padding: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
   },
   searchBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     marginBottom: 8,
+    marginTop: 8,
   },
   searchInput: {
     flex: 1,
     backgroundColor: '#f3f4f6',
     borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     fontSize: 16,
     color: '#222',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 15,
+    marginTop: 15,
   },
   listContainer: {
     flex: 1,
@@ -148,29 +227,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    marginBottom: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
   },
   selectedRow: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#e0e7ef',
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: 12,
+    marginRight: 14,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   onlineDot: {
     position: 'absolute',
     bottom: 4,
     right: 4,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#22c55e',
     borderWidth: 2,
     borderColor: '#fff',
@@ -186,7 +269,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 17,
     color: '#222',
   },
   time: {

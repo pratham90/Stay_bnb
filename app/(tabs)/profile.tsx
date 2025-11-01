@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Image } from 'expo-image';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { HelloWave } from '@/components/hello-wave';
@@ -10,6 +10,42 @@ import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 
 export default function Profile() {
+  // Animation refs
+  const headerAnim = useRef(new Animated.Value(-60)).current;
+  const headerFade = useRef(new Animated.Value(0)).current;
+  const avatarAnim = useRef(new Animated.Value(0)).current;
+  const cardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(headerAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.exp),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headerFade, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(avatarAnim, {
+        toValue: 1,
+        duration: 500,
+        delay: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardAnim, {
+        toValue: 1,
+        duration: 600,
+        delay: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [headerAnim, headerFade, avatarAnim, cardAnim]);
+
   const user = {
     name: 'Sarah Anderson',
     email: 'sarah.anderson@email.com',
@@ -36,32 +72,42 @@ export default function Profile() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Gradient Header */}
-      <LinearGradient colors={["#14b8a6", "#38bdf8"]} style={styles.headerBg}>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarWrap}>
-            <Image source={{ uri: user.avatar }} style={styles.avatar} />
-            {user.superhost && (
-              <View style={styles.superhostStar}><Text style={{ color: '#fff', fontSize: 16 }}>★</Text></View>
-            )}
+      {/* Animated Gradient Header */}
+      <Animated.View
+        style={[
+          styles.animatedHeader,
+          {
+            transform: [{ translateY: headerAnim }],
+            opacity: headerFade,
+          },
+        ]}
+      >
+        <LinearGradient colors={["#6a85f1", "#38bdf8"]} start={{x:0.1,y:0}} end={{x:1,y:0.8}} style={styles.headerBg}>
+          <Animated.View style={[styles.profileHeader, { opacity: avatarAnim, transform: [{ scale: avatarAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] }] }>
+            <View style={styles.avatarWrap}>
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              {user.superhost && (
+                <View style={styles.superhostStar}><Text style={{ color: '#fff', fontSize: 16 }}>★</Text></View>
+              )}
+            </View>
+            <Text style={styles.name}>{user.name}</Text>
+            <Text style={styles.email}>{user.email}</Text>
+            <View style={styles.locationRow}>
+              <Text style={styles.locationIcon}>📍</Text>
+              <Text style={styles.location}>{user.location}</Text>
+            </View>
+            <View style={styles.superhostBadge}><Text style={styles.superhostText}>Superhost</Text></View>
+          </Animated.View>
+          <View style={styles.quickActionsRow}>
+            {quickActions.map((_, idx) => (
+              <View key={idx} style={styles.quickActionCard} />
+            ))}
           </View>
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-          <View style={styles.locationRow}>
-            <Text style={styles.locationIcon}>📍</Text>
-            <Text style={styles.location}>{user.location}</Text>
-          </View>
-          <View style={styles.superhostBadge}><Text style={styles.superhostText}>Superhost</Text></View>
-        </View>
-        <View style={styles.quickActionsRow}>
-          {quickActions.map((_, idx) => (
-            <View key={idx} style={styles.quickActionCard} />
-          ))}
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </Animated.View>
 
-      {/* Settings List */}
-      <View style={styles.settingsList}>
+      {/* Animated Settings List */}
+      <Animated.View style={[styles.settingsList, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }] }>
         {settings.map((item, idx) => (
           <TouchableOpacity key={item.label} style={[styles.settingsItem, item.danger && styles.dangerItem]}>
             <View style={styles.settingsIcon}><Text style={{ fontSize: 20 }}>{item.icon}</Text></View>
@@ -72,10 +118,10 @@ export default function Profile() {
             <Text style={styles.settingsArrow}>›</Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </Animated.View>
 
-      {/* Recent Activity */}
-      <View style={styles.activitySection}>
+      {/* Animated Recent Activity */}
+      <Animated.View style={[styles.activitySection, { opacity: cardAnim, transform: [{ translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }] }>
         <Text style={styles.activityHeader}>Recent Activity</Text>
         {activities.map((act, idx) => (
           <TouchableOpacity key={idx} style={styles.activityCard}>
@@ -87,7 +133,7 @@ export default function Profile() {
             <Text style={styles.activityArrow}>›</Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -95,12 +141,19 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8fafc',
+  },
+  animatedHeader: {
+    zIndex: 2,
   },
   headerBg: {
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 8,
   },
   profileHeader: {
     alignItems: 'center',

@@ -11,9 +11,9 @@ export default function AuthScreen() {
 
   React.useEffect(() => {
     if (isSignedIn) {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/profile');
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, router]);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

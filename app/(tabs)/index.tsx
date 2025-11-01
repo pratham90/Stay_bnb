@@ -1,7 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Image, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
-import { Search, SlidersHorizontal, Heart, Star, MapPin } from 'lucide-react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Animated, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Heart, Star, MapPin, Calendar, LogOut } from 'lucide-react-native';
 import { Badge } from '@/components/ui/badge';
 
 const cities = [
@@ -80,7 +82,7 @@ const listings = [
   },
 ];
 
-export default function ExperienceTab() {
+export default function ExploreTab() {
   const [selectedCity, setSelectedCity] = useState('New York');
   const [favorites, setFavorites] = useState(new Set([1, 3]));
   const cityAnim = useRef(cities.map(() => new Animated.Value(0))).current;
@@ -103,7 +105,7 @@ export default function ExperienceTab() {
     )).start();
   }, [cityAnim, cardAnim]);
 
-  const toggleFavorite = (id) => {
+  const toggleFavorite = (id: number) => {
     setFavorites(prev => {
       const newFavorites = new Set(prev);
       if (newFavorites.has(id)) {
@@ -116,31 +118,30 @@ export default function ExperienceTab() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* City selector with animation */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.citiesScroll}>
-        {cities.map((city, idx) => (
-          <Animated.View
-            key={city.name}
-            style={{
-              opacity: cityAnim[idx],
-              transform: [{ scale: cityAnim[idx].interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
-            }}
-          >
-            <TouchableOpacity
-              style={[styles.cityChip, selectedCity === city.name && styles.cityChipSelected]}
-              onPress={() => setSelectedCity(city.name)}
-            >
-              <Image source={{ uri: city.image }} style={styles.cityImage} />
-              <Text style={[styles.cityText, selectedCity === city.name && styles.cityTextSelected]}>{city.name}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </ScrollView>
+    <SafeAreaView style={styles.container}>
+      {/* Animated Search Bar */}
+      <Animated.View style={styles.searchBarWrap}>
+        <View style={styles.searchBarRow}>
+          <IconSymbol name="explore.fill" size={22} color="#14b8a6" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Start your search"
+            placeholderTextColor="#bbb"
+          />
+        </View>
+      </Animated.View>
 
-      {/* Experiences Grid with animation */}
-      <ScrollView style={styles.listingsScroll}>
-        {listings.filter(l => l.location.includes(selectedCity)).map((listing, idx) => (
+      {/* Animated Categories Row */}
+      <View style={styles.categoriesRow}>
+      <View style={styles.categoryItem}><MapPin size={28} color="#14b8a6" /><Text style={styles.categoryLabel}>Where</Text></View>
+        <View style={styles.categoryItem}><Calendar size={28} color="#f59e42" /><Text style={styles.categoryLabel}>Check In</Text></View>
+        <View style={styles.categoryItem}><LogOut size={28} color="#6366f1" /><Text style={styles.categoryLabel}>Check Out</Text></View>
+      </View>
+
+      {/* Animated Section: Popular homes */}
+      <Text style={styles.sectionHeader}>Popular homes in South Goa {'>'}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+        {listings.slice(0,2).map((listing, idx) => (
           <Animated.View
             key={listing.id}
             style={{
@@ -148,54 +149,146 @@ export default function ExperienceTab() {
               transform: [{ translateY: cardAnim[idx].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
             }}
           >
-            <TouchableOpacity
-              style={styles.listingCard}
-              onPress={() => {}}
-            >
-              <View style={styles.listingImageContainer}>
-                <Image source={{ uri: listing.image }} style={styles.listingImage} />
-                <TouchableOpacity
-                  style={styles.favoriteButton}
-                  onPress={() => toggleFavorite(listing.id)}
-                >
-                  <Heart size={20} color={favorites.has(listing.id) ? '#ef4444' : '#888'} />
-                </TouchableOpacity>
-                <View style={styles.badgeContainer}>
-                  <Badge label={listing.type} variant="default" />
-                </View>
-              </View>
-              <View style={styles.listingInfo}>
-                <View style={styles.listingTitleRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.listingTitle}>{listing.title}</Text>
-                    <View style={styles.listingLocationRow}>
-                      <MapPin size={14} color="#888" />
-                      <Text style={styles.listingLocation}>{listing.location}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.listingRatingRow}>
-                    <Star size={16} color="#facc15" />
-                    <Text style={styles.listingRating}>{listing.rating}</Text>
-                  </View>
-                </View>
-                <Text style={styles.listingDistance}>{listing.distance}</Text>
-                <Text style={styles.listingPrice}>
-                  ${listing.price}
-                  <Text style={styles.listingPriceNight}> / night</Text>
-                </Text>
-              </View>
+            <TouchableOpacity style={styles.popularCard}>
+              <Image source={{ uri: listing.image }} style={styles.popularImage} />
+              <Text style={styles.popularTitle}>{listing.title}</Text>
+              <Text style={styles.popularLocation}>{listing.location}</Text>
             </TouchableOpacity>
           </Animated.View>
         ))}
       </ScrollView>
-    </View>
+
+      {/* Animated Section: Available next month */}
+      <Text style={styles.sectionHeader}>Available next month in North Goa {'>'}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+        {listings.slice(2,4).map((listing, idx) => (
+          <Animated.View
+            key={listing.id}
+            style={{
+              opacity: cardAnim[idx+2],
+              transform: [{ translateY: cardAnim[idx+2].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+            }}
+          >
+            <TouchableOpacity style={styles.popularCard}>
+              <Image source={{ uri: listing.image }} style={styles.popularImage} />
+              <Text style={styles.popularTitle}>{listing.title}</Text>
+              <Text style={styles.popularLocation}>{listing.location}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        ))}
+      </ScrollView>
+
+      {/* Animated Section: Stay in Bhopal */}
+      <Text style={styles.sectionHeader}>Stay in Bhopal {'>'}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+        {listings.slice(4,5).map((listing, idx) => (
+          <Animated.View
+            key={listing.id}
+            style={{
+              opacity: cardAnim[idx+4],
+              transform: [{ translateY: cardAnim[idx+4].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+            }}
+          >
+            <TouchableOpacity style={styles.popularCard}>
+              <Image source={{ uri: listing.image }} style={styles.popularImage} />
+              <Text style={styles.popularTitle}>{listing.title}</Text>
+              <Text style={styles.popularLocation}>{listing.location}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8fafc',
+    paddingTop: 8,
+  },
+  searchBarWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  searchBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#222',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  categoriesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+  categoryItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
+  },
+  categoryLabel: {
+    fontSize: 13,
+    color: '#222',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#222',
+    marginTop: 12,
+    marginBottom: 6,
+    marginLeft: 16,
+  },
+  horizontalScroll: {
+    paddingLeft: 12,
+    marginBottom: 8,
+  },
+  popularCard: {
+    width: 180,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    marginRight: 14,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  popularImage: {
+    width: '100%',
+    height: 100,
+    borderRadius: 14,
+    marginBottom: 8,
+  },
+  popularTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 2,
+  },
+  popularLocation: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 2,
   },
   citiesScroll: {
     paddingVertical: 16,
