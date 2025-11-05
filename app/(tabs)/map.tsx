@@ -1,8 +1,10 @@
-import React, { useRef, useEffect } from 'react';
-import { Text, StyleSheet, TouchableOpacity, Image, Animated, Easing, TextInput } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { Text, StyleSheet, TouchableOpacity, Image, Animated, Easing, TextInput, View, Platform, ActivityIndicator } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MapPin, Filter, List, Plus, Navigation } from 'lucide-react-native';
+import { WebView } from 'react-native-webview';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
@@ -143,6 +145,12 @@ const styles = StyleSheet.create({
 });
 
 export default function MapTab() {
+  // State for location, markers, nearby type, loading, and result
+  const [location, setLocation] = useState('New York');
+  const [nearbyType, setNearbyType] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
   //
   // Animation refs
   const topBarAnim = useRef(new Animated.Value(-60)).current;
@@ -187,6 +195,23 @@ export default function MapTab() {
     ]).start();
   }, [topBarAnim, searchAnim, badgeAnim, mapAnim, markerAnims, fabAnim, locationAnim]);
 
+  // API call to backend
+  const handleSearch = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const params = new URLSearchParams();
+      params.append('location', location);
+      if (nearbyType) params.append('show_nearby', nearbyType);
+      const res = await fetch(`http://192.168.100.2:8000/api/map?${params.toString()}`);
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      setResult({ error: 'Failed to fetch map data' });
+    }
+    setLoading(false);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Bar with Avatar, Search, Filter */}
@@ -194,17 +219,41 @@ export default function MapTab() {
         <Image source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} style={styles.avatar} />
         <Animated.View style={[styles.searchBar, { opacity: searchAnim, transform: [{ scale: searchAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] }]}> 
           <MapPin size={20} color="#bbb" />
-          <TextInput style={styles.searchInput} placeholder="Where to?" placeholderTextColor="#bbb" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Where to?"
+            placeholderTextColor="#bbb"
+            value={location}
+            onChangeText={setLocation}
+          />
         </Animated.View>
-        <TouchableOpacity style={styles.filterBtn}>
-          <Filter size={20} color="#bbb" />
+      
+      </Animated.View>
+      {/* Nearby places dropdown and search button in a row below search bar */}
+      <View style={{ flexDirection: 'row', marginHorizontal: 16, marginTop: 10, marginBottom: 8, alignItems: 'center' }}>
+        <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#eee', marginRight: 10 }}>
+          <Picker
+            selectedValue={nearbyType}
+            onValueChange={setNearbyType}
+            style={{ height: 64 }}
+            itemStyle={{ fontSize: 16 }}
+          >
+            <Picker.Item label="No nearby places" value="" />
+            <Picker.Item label="Tourist Attractions" value="tourism" />
+            <Picker.Item label="Restaurants" value="restaurant" />
+            <Picker.Item label="Hotels" value="hotel" />
+            <Picker.Item label="Cafes" value="cafe" />
+          </Picker>
+        </View>
+        <TouchableOpacity
+          style={{ backgroundColor: '#14b8a6', borderRadius: 18, paddingVertical: 12, paddingHorizontal: 22, alignItems: 'center', justifyContent: 'center', minWidth: 120 }}
+          onPress={handleSearch}
+          disabled={loading}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{loading ? 'Loading...' : 'Show on Map'}</Text>
         </TouchableOpacity>
-      </Animated.View>
-      {/* Travelers Here Badge */}
-      <Animated.View style={[styles.travelersBadge, { opacity: badgeAnim, transform: [{ translateY: badgeAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}> 
-        <Text style={styles.travelersText}>• Travelers Here</Text>
-      </Animated.View>
-      {/* Animated Map Area with Gradient */}
+      </View>
+      {/* Animated Map Area with Gradient (hide demo markers if result shown) */}
       <Animated.View style={[styles.mapArea, { opacity: mapAnim }]}> 
         <LinearGradient
           colors={["#e0f7fa", "#e0e7ef", "#f8fafc"]}
@@ -212,37 +261,33 @@ export default function MapTab() {
           end={{ x: 1, y: 1 }}
           style={styles.mapGradient}
         />
-        {/* Animated Price Markers */}
-        {priceMarkers.map((marker, idx) => (
-          <Animated.View
-            key={marker.price}
-            style={[styles.priceMarker, {
-              top: `${marker.top}%` as `${number}%`,
-              left: `${marker.left}%` as `${number}%`,
-              opacity: markerAnims[idx],
-              transform: [{ scale: markerAnims[idx].interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
-            }]}
-          >
-            <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 16 }}>{marker.price}</Text>
-          </Animated.View>
-        ))}
+        {/* Show demo price markers only if no result */}
+      
+        {/* If result, show map HTML or error */}
+        {loading && (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#14b8a6" />
+            <Text style={{ marginTop: 8, color: '#14b8a6' }}>Loading map...</Text>
+          </View>
+        )}
+        {result && result.success && result.map_html && (
+          <WebView
+            originWhitelist={["*"]}
+            source={{ html: result.map_html }}
+            style={{ flex: 1, minHeight: 500, borderRadius: 12, margin: 0 }}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            scalesPageToFit={true}
+            automaticallyAdjustContentInsets={false}
+          />
+        )}
+        {result && (!result.success || !result.map_html) && (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 12 }}>
+            <Text style={{ color: 'red', fontWeight: 'bold' }}>{result.error || 'Error loading map'}</Text>
+          </View>
+        )}
       </Animated.View>
-      {/* Floating Action Buttons Row */}
-      <Animated.View style={[styles.fabRow, { opacity: fabAnim, transform: [{ translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }]}> 
-        <TouchableOpacity style={styles.listBtn}>
-          <List size={20} color="#fff" />
-          <Text style={styles.listBtnText}>List</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.plusBtn}>
-          <Plus size={24} color="#fff" />
-        </TouchableOpacity>
-      </Animated.View>
-      {/* Floating Location Button */}
-      <Animated.View style={[styles.locationBtn, { opacity: locationAnim, transform: [{ scale: locationAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }] }]}> 
-        <TouchableOpacity>
-          <Navigation size={24} color="#14b8a6" />
-        </TouchableOpacity>
-      </Animated.View>
+      {/* Removed List, Plus, Send, and Location icons from the bottom for a cleaner UI */}
     </SafeAreaView>
   );
 }

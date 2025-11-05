@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Animated, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Heart, Star, MapPin, Calendar, LogOut } from 'lucide-react-native';
+import { Heart, Star, MapPin, Calendar, LogOut ,SearchIcon} from 'lucide-react-native';
 import { Badge } from '@/components/ui/badge';
 
 const cities = [
@@ -14,79 +14,17 @@ const cities = [
   { name: 'Aspen', image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=400&q=80' },
 ];
 
-const listings = [
-  {
-    id: 1,
-    title: 'Modern Downtown Loft',
-    location: 'New York, USA',
-    price: 120,
-    rating: 4.9,
-    reviews: 128,
-    image: 'https://images.unsplash.com/photo-1594873604892-b599f847e859?auto=format&fit=crop&w=400&q=80',
-    type: 'Apartment',
-    host: 'Sarah',
-    isFavorite: true,
-    distance: '2.5 km away'
-  },
-  {
-    id: 2,
-    title: 'Cozy Beach House',
-    location: 'Malibu, USA',
-    price: 89,
-    rating: 4.8,
-    reviews: 95,
-    image: 'https://images.unsplash.com/photo-1601019404210-8bb5dd3ab015?auto=format&fit=crop&w=400&q=80',
-    type: 'House',
-    host: 'Michael',
-    isFavorite: false,
-    distance: '5.8 km away'
-  },
-  {
-    id: 3,
-    title: 'Luxury Villa with Pool',
-    location: 'Miami, USA',
-    price: 156,
-    rating: 5.0,
-    reviews: 203,
-    image: 'https://images.unsplash.com/photo-1694967832949-09984640b143?auto=format&fit=crop&w=400&q=80',
-    type: 'Villa',
-    host: 'Emma',
-    isFavorite: true,
-    distance: '1.2 km away'
-  },
-  {
-    id: 4,
-    title: 'Mountain Cabin Retreat',
-    location: 'Aspen, USA',
-    price: 78,
-    rating: 4.7,
-    reviews: 64,
-    image: 'https://images.unsplash.com/photo-1623015522585-ddc7e066a821?auto=format&fit=crop&w=400&q=80',
-    type: 'Cabin',
-    host: 'David',
-    isFavorite: false,
-    distance: '12.4 km away'
-  },
-  {
-    id: 5,
-    title: 'City Center Studio',
-    location: 'Chicago, USA',
-    price: 95,
-    rating: 4.6,
-    reviews: 87,
-    image: 'https://images.unsplash.com/photo-1664159302000-cef53d678f4f?auto=format&fit=crop&w=400&q=80',
-    type: 'Studio',
-    host: 'Jessica',
-    isFavorite: false,
-    distance: '3.7 km away'
-  },
-];
+
 
 export default function ExploreTab() {
   const [selectedCity, setSelectedCity] = useState('New York');
-  const [favorites, setFavorites] = useState(new Set([1, 3]));
+  const [inputCity, setInputCity] = useState('New York');
+  const [favorites, setFavorites] = useState(new Set());
+  const [placeType, setPlaceType] = useState<'hotel' | 'restaurant' | 'tourism'>('hotel');
+  const [places, setPlaces] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const cityAnim = useRef(cities.map(() => new Animated.Value(0))).current;
-  const cardAnim = useRef([1,2,3,4,5].map(() => new Animated.Value(0))).current;
+  const cardAnim = useRef(Array(10).fill(0).map(() => new Animated.Value(0))).current;
 
   useEffect(() => {
     Animated.stagger(80, cityAnim.map(anim =>
@@ -104,6 +42,31 @@ export default function ExploreTab() {
       })
     )).start();
   }, [cityAnim, cardAnim]);
+
+  // Fetch places from backend only when user clicks OK
+  const fetchPlaces = async (locationToSearch?: string, typeToSearch?: typeof placeType) => {
+    const loc = (locationToSearch !== undefined ? locationToSearch : inputCity).trim();
+    const type = typeToSearch || placeType;
+    if (!loc || loc.length < 3) return;
+    setLoading(true);
+    setPlaces([]);
+    let endpoint = '';
+    if (type === 'hotel') endpoint = 'hotels';
+    else if (type === 'restaurant') endpoint = 'restaurants';
+    else if (type === 'tourism') endpoint = 'tourism';
+    try {
+      const res = await fetch(`http://192.168.100.2:8000/api/${endpoint}?location=${encodeURIComponent(loc)}&limit=10`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setPlaces(data.data);
+      } else {
+        setPlaces([]);
+      }
+    } catch {
+      setPlaces([]);
+    }
+    setLoading(false);
+  };
 
   const toggleFavorite = (id: number) => {
     setFavorites(prev => {
@@ -125,78 +88,105 @@ export default function ExploreTab() {
           <IconSymbol name="explore.fill" size={22} color="#14b8a6" style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Start your search"
+            placeholder="Enter location (e.g. New York)"
             placeholderTextColor="#bbb"
+            value={inputCity}
+            onChangeText={setInputCity}
           />
+          <TouchableOpacity
+            style={{ marginLeft: 8, backgroundColor: '#14b8a6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}
+            onPress={() => {
+              if (inputCity && inputCity.trim().length >= 3) {
+                setSelectedCity(inputCity.trim());
+                fetchPlaces(inputCity.trim(), placeType);
+              }
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+              <SearchIcon size={20} color="#fff" />
+            </Text>
+          </TouchableOpacity>
         </View>
       </Animated.View>
 
-      {/* Animated Categories Row */}
-      <View style={styles.categoriesRow}>
-      <View style={styles.categoryItem}><MapPin size={28} color="#14b8a6" /><Text style={styles.categoryLabel}>Where</Text></View>
-        <View style={styles.categoryItem}><Calendar size={28} color="#f59e42" /><Text style={styles.categoryLabel}>Check In</Text></View>
-        <View style={styles.categoryItem}><LogOut size={28} color="#6366f1" /><Text style={styles.categoryLabel}>Check Out</Text></View>
+      {/* Place type selector */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 10, gap: 8 }}>
+        <TouchableOpacity onPress={() => { setPlaceType('hotel'); fetchPlaces(inputCity.trim(), 'hotel'); }} style={{ backgroundColor: placeType === 'hotel' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: placeType === 'hotel' ? '#fff' : '#222', fontWeight: 'bold' }}>Hotels</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setPlaceType('restaurant'); fetchPlaces(inputCity.trim(), 'restaurant'); }} style={{ backgroundColor: placeType === 'restaurant' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: placeType === 'restaurant' ? '#fff' : '#222', fontWeight: 'bold' }}>Restaurants</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => { setPlaceType('tourism'); fetchPlaces(inputCity.trim(), 'tourism'); }} style={{ backgroundColor: placeType === 'tourism' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: placeType === 'tourism' ? '#fff' : '#222', fontWeight: 'bold' }}>Tourist Attractions</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Animated Section: Popular homes */}
-      <Text style={styles.sectionHeader}>Popular homes in South Goa {'>'}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {listings.slice(0,2).map((listing, idx) => (
-          <Animated.View
-            key={listing.id}
-            style={{
-              opacity: cardAnim[idx],
-              transform: [{ translateY: cardAnim[idx].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
-            }}
-          >
-            <TouchableOpacity style={styles.popularCard}>
-              <Image source={{ uri: listing.image }} style={styles.popularImage} />
-              <Text style={styles.popularTitle}>{listing.title}</Text>
-              <Text style={styles.popularLocation}>{listing.location}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </ScrollView>
-
-      {/* Animated Section: Available next month */}
-      <Text style={styles.sectionHeader}>Available next month in North Goa {'>'}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {listings.slice(2,4).map((listing, idx) => (
-          <Animated.View
-            key={listing.id}
-            style={{
-              opacity: cardAnim[idx+2],
-              transform: [{ translateY: cardAnim[idx+2].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
-            }}
-          >
-            <TouchableOpacity style={styles.popularCard}>
-              <Image source={{ uri: listing.image }} style={styles.popularImage} />
-              <Text style={styles.popularTitle}>{listing.title}</Text>
-              <Text style={styles.popularLocation}>{listing.location}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </ScrollView>
-
-      {/* Animated Section: Stay in Bhopal */}
-      <Text style={styles.sectionHeader}>Stay in Bhopal {'>'}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-        {listings.slice(4,5).map((listing, idx) => (
-          <Animated.View
-            key={listing.id}
-            style={{
-              opacity: cardAnim[idx+4],
-              transform: [{ translateY: cardAnim[idx+4].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
-            }}
-          >
-            <TouchableOpacity style={styles.popularCard}>
-              <Image source={{ uri: listing.image }} style={styles.popularImage} />
-              <Text style={styles.popularTitle}>{listing.title}</Text>
-              <Text style={styles.popularLocation}>{listing.location}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </ScrollView>
+      {/* Real places list from backend */}
+      {loading ? (
+        <Text style={{ textAlign: 'center', color: '#14b8a6', marginTop: 32 }}>Loading...</Text>
+      ) : (
+        <ScrollView style={styles.listingsScroll}>
+          {places.length === 0 && (
+            <Text style={{ textAlign: 'center', color: '#888', marginTop: 32 }}>No results found.</Text>
+          )}
+          {places.map((item, idx) => (
+            <Animated.View
+              key={item._id || item.id || item.name + idx}
+              style={{
+                opacity: cardAnim[idx % cardAnim.length],
+                transform: [{ translateY: cardAnim[idx % cardAnim.length].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+              }}
+            >
+              <TouchableOpacity style={styles.listingCard}>
+                <View style={styles.listingImageContainer}>
+                  <Image source={{ uri: item.image || 'https://placehold.co/400x200?text=No+Image' }} style={styles.listingImage} />
+                  <TouchableOpacity
+                    style={styles.favoriteButton}
+                    onPress={() => {
+                      const id = item._id || item.id || idx;
+                      setFavorites(prev => {
+                        const newFavorites = new Set(prev);
+                        if (newFavorites.has(id)) newFavorites.delete(id); else newFavorites.add(id);
+                        return newFavorites;
+                      });
+                    }}
+                  >
+                    <Heart size={20} color={favorites.has(item._id || item.id || idx) ? '#ef4444' : '#888'} />
+                  </TouchableOpacity>
+                  <View style={styles.badgeContainer}>
+                    <Badge label={item.type || placeType} variant="default" />
+                  </View>
+                </View>
+                <View style={styles.listingInfo}>
+                  <View style={styles.listingTitleRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.listingTitle}>{item.name || item.title || item.display_name}</Text>
+                      <View style={styles.listingLocationRow}>
+                        <MapPin size={14} color="#888" />
+                        <Text style={styles.listingLocation}>{item.address || item.location || selectedCity}</Text>
+                      </View>
+                    </View>
+                    {item.rating && (
+                      <View style={styles.listingRatingRow}>
+                        <Star size={16} color="#facc15" />
+                        <Text style={styles.listingRating}>{item.rating}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {item.distance && <Text style={styles.listingDistance}>{item.distance}</Text>}
+                  {item.price && (
+                    <Text style={styles.listingPrice}>
+                      ${item.price}
+                      <Text style={styles.listingPriceNight}> / night</Text>
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
