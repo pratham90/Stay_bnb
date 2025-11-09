@@ -44,18 +44,23 @@ export default function ExploreTab() {
   }, [cityAnim, cardAnim]);
 
   // Fetch places from backend only when user clicks OK
+  // Map frontend placeType to backend endpoint
+  const getEndpoint = (type: typeof placeType) => {
+    if (type === 'hotel') return 'hotels';
+    if (type === 'restaurant') return 'restaurants';
+    if (type === 'tourism') return 'tourism';
+    return '';
+  };
+
   const fetchPlaces = async (locationToSearch?: string, typeToSearch?: typeof placeType) => {
     const loc = (locationToSearch !== undefined ? locationToSearch : inputCity).trim();
     const type = typeToSearch || placeType;
     if (!loc || loc.length < 3) return;
     setLoading(true);
     setPlaces([]);
-    let endpoint = '';
-    if (type === 'hotel') endpoint = 'hotels';
-    else if (type === 'restaurant') endpoint = 'restaurants';
-    else if (type === 'tourism') endpoint = 'tourism';
+    const endpoint = getEndpoint(type);
     try {
-      const res = await fetch(`http://192.168.100.2:8000/api/${endpoint}?location=${encodeURIComponent(loc)}&limit=10`);
+      const res = await fetch(`http://192.168.100.5:8000/api/${endpoint}?location=${encodeURIComponent(loc)}&limit=10`);
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setPlaces(data.data);

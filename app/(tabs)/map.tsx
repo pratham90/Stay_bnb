@@ -196,14 +196,26 @@ export default function MapTab() {
   }, [topBarAnim, searchAnim, badgeAnim, mapAnim, markerAnims, fabAnim, locationAnim]);
 
   // API call to backend
+  // Map frontend nearbyType to backend show_nearby value
+  // Pass the Picker value directly as show_nearby (must be plural to match backend)
+  const getShowNearbyValue = (type) => {
+  if (type === 'tourism') return 'tourism';
+  if (type === 'restaurants0') return 'restaurant';
+  if (type === 'hotels') return 'hotel';
+  if (type === 'cafes') return 'cafe';
+  return '';
+  };
+
   const handleSearch = async () => {
     setLoading(true);
     setResult(null);
     try {
       const params = new URLSearchParams();
       params.append('location', location);
-      if (nearbyType) params.append('show_nearby', nearbyType);
-      const res = await fetch(`http://192.168.100.2:8000/api/map?${params.toString()}`);
+      const showNearby = getShowNearbyValue(nearbyType);
+      console.log('Selected nearbyType:', nearbyType, 'Mapped show_nearby:', showNearby);
+      if (showNearby) params.append('show_nearby', showNearby);
+      const res = await fetch(`http://192.168.100.5:8000/api/map?${params.toString()}`);
       const data = await res.json();
       setResult(data);
     } catch (e) {
@@ -240,9 +252,9 @@ export default function MapTab() {
           >
             <Picker.Item label="No nearby places" value="" />
             <Picker.Item label="Tourist Attractions" value="tourism" />
-            <Picker.Item label="Restaurants" value="restaurant" />
-            <Picker.Item label="Hotels" value="hotel" />
-            <Picker.Item label="Cafes" value="cafe" />
+            <Picker.Item label="Restaurants" value="restaurants" />
+            <Picker.Item label="Hotels" value="hotels" />
+            <Picker.Item label="Cafes" value="cafes" />
           </Picker>
         </View>
         <TouchableOpacity
