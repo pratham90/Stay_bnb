@@ -2,23 +2,25 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSignIn, useSignUp, useAuth } from '@clerk/clerk-expo';
+import { useSignIn, useSignUp, useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 
 export default function AuthScreen() {
+  const { user } = useUser();
   const { isSignedIn } = useAuth();
   const router = useRouter();
 
   React.useEffect(() => {
     if (isSignedIn) {
-      router.replace('/(tabs)/profile');
+      router.replace('/(tabs)/map');
     }
   }, [isSignedIn, router]);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const signIn = useSignIn();
   const signUp = useSignUp();
@@ -30,10 +32,7 @@ export default function AuthScreen() {
       if (!signIn.isLoaded) throw new Error('SignIn not loaded');
       const res = await signIn.signIn.create({ identifier: email, password });
       if (res.status === 'complete') {
-        // Only set active if not already active
-        if (signIn.sessionId !== res.createdSessionId) {
-          await signIn.setActive({ session: res.createdSessionId });
-        }
+        await signIn.setActive({ session: res.createdSessionId });
       } else {
         setError('Login failed.');
       }
@@ -48,6 +47,22 @@ export default function AuthScreen() {
     setLoading(false);
   };
 
+  const registerUserInBackend = async (clerkId: string, name: string, email: string) => {
+    try {
+      await fetch('http://192.168.100.2:8000/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clerk_id: clerkId,
+          name,
+          email
+        })
+      });
+    } catch {
+      // Optionally handle error
+    }
+  };
+
   const handleSignUp = async () => {
     setLoading(true);
     setError('');
@@ -56,11 +71,40 @@ export default function AuthScreen() {
       const res = await signUp.signUp.create({ emailAddress: email, password });
       if (res.status === 'complete') {
         await signUp.setActive({ session: res.createdSessionId });
+        // Register user in backend
+        if (user) {
+          await registerUserInBackend(user.id, user.fullName || user.username || '', user.primaryEmailAddress?.emailAddress || email);
+        }
+      } else if (res.status === 'missing_requirements') {
+        await signUp.signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+        setPendingVerification(true);
       } else {
         setError('Sign up failed.');
       }
     } catch (err: any) {
       setError(err?.errors?.[0]?.message || err?.message || 'Sign up error');
+    }
+    setLoading(false);
+  };
+
+  const handleVerify = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      if (!signUp.isLoaded) throw new Error('SignUp not loaded');
+      const res = await signUp.signUp.attemptEmailAddressVerification({ code: verificationCode });
+      if (res.status === 'complete') {
+        await signUp.setActive({ session: res.createdSessionId });
+        setPendingVerification(false);
+        // Register user in backend after verification
+        if (user) {
+          await registerUserInBackend(user.id, user.fullName || user.username || '', user.primaryEmailAddress?.emailAddress || email);
+        }
+      } else {
+        setError('Verification failed.');
+      }
+    } catch (err: any) {
+      setError(err?.errors?.[0]?.message || err?.message || 'Verification error');
     }
     setLoading(false);
   };
@@ -84,17 +128,6 @@ export default function AuthScreen() {
           </TouchableOpacity>
         </View>
         <View style={{ marginTop: 12 }}>
-          {!isLogin && (
-            <View style={styles.inputRow}>
-              <Text style={styles.inputLabel}>Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
-          )}
           <View style={styles.inputRow}>
             <Text style={styles.inputLabel}>Email</Text>
             <TextInput
@@ -117,13 +150,36 @@ export default function AuthScreen() {
             />
           </View>
           {error ? <Text style={{ color: 'red', marginBottom: 8 }}>{error}</Text> : null}
-          <TouchableOpacity
-            style={[styles.loginBtn, loading && { opacity: 0.7 }]}
-            onPress={isLogin ? handleLogin : handleSignUp}
-            disabled={loading}
-          >
-            <Text style={styles.loginBtnText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
-          </TouchableOpacity>
+          {pendingVerification && !isLogin ? (
+            <>
+              <View style={styles.inputRow}>
+                <Text style={styles.inputLabel}>Verification Code</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter code from email"
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  keyboardType="number-pad"
+                  autoCapitalize="none"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.loginBtn, loading && { opacity: 0.7 }]}
+                onPress={handleVerify}
+                disabled={loading || !verificationCode}
+              >
+                <Text style={styles.loginBtnText}>Verify</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={[styles.loginBtn, loading && { opacity: 0.7 }]}
+              onPress={isLogin ? handleLogin : handleSignUp}
+              disabled={loading}
+            >
+              <Text style={styles.loginBtnText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={styles.termsText}>
           By continuing, you agree to our Terms & Privacy Policy

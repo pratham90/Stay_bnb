@@ -1,305 +1,243 @@
+
 import React, { useRef, useEffect, useState } from 'react';
-import { Text, StyleSheet, TouchableOpacity, Image, Animated, Easing, TextInput, View, Platform, ActivityIndicator } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, Animated, TextInput, View, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Filter, List, Plus, Navigation } from 'lucide-react-native';
+import { MapPin, Search } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
+import { PlacesProvider, usePlaces } from '../../context/PlacesContext';
+import { useUser } from '../../context/UserContext';
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 6,
-    zIndex: 2,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#222',
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    marginLeft: 8,
-  },
-  filterBtn: {
-    marginLeft: 10,
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  travelersBadge: {
-    alignSelf: 'flex-start',
-    marginLeft: 62,
-    marginTop: 6,
-    backgroundColor: '#14b8a6',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  travelersText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
   mapArea: {
-    flex: 1,
-    marginTop: 10,
-    marginHorizontal: 0,
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
     borderRadius: 0,
     overflow: 'hidden',
     justifyContent: 'flex-end',
+    
   },
-  mapGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  priceMarker: {
+  floatingSearchBar: {
     position: 'absolute',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#222',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  fabRow: {
-    position: 'absolute',
-    bottom: 38,
+    top: 60,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  listBtn: {
-    backgroundColor: '#111827',
-    borderRadius: 18,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  listBtnText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-    marginLeft: 8,
-  },
-  plusBtn: {
-    backgroundColor: '#14b8a6',
-    borderRadius: 18,
-    padding: 14,
+    zIndex: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
+    paddingHorizontal: 0,
   },
-  locationBtn: {
-    position: 'absolute',
-    bottom: 38,
-    right: 24,
-    backgroundColor: '#fff',
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '82%',
+    maxWidth: 500,
+    backgroundColor: '#ffffffff',
     borderRadius: 22,
-    padding: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
     elevation: 2,
-    zIndex: 3,
+    borderWidth: 0.5,
+    borderColor: '#bfbfbfff',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 17,
+    color: '#232946',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    marginLeft: 8,
+    paddingVertical: 4,
+  },
+  searchIconBtn: {
+    marginLeft: 10,
+    backgroundColor: '#4C6FFF',
+    borderRadius: 16,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropdownLabelFloating: {
+    position: 'absolute',
+    top: 126,
+    left: 24,
+    zIndex: 21,
+    backgroundColor: '#f4f6fb',
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    borderRadius: 18,
+    fontSize: 15,
+    color: '#4C6FFF',
+    fontWeight: '700',
+    shadowColor: '#4C6FFF',
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e0e6ef',
+    letterSpacing: 0.2,
+    alignSelf: 'flex-start',
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 80,
+    left: 28,
+    zIndex: 20,
+    backgroundColor: '#fdfdfdff',
+    borderRadius:10,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#dadadaff',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#e0e6ef',
+    padding: 0,
   },
 });
 
-export default function MapTab() {
-  // State for location, markers, nearby type, loading, and result
-  const [location, setLocation] = useState('New York');
-  const [nearbyType, setNearbyType] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
 
-  //
-  // Animation refs
-  const topBarAnim = useRef(new Animated.Value(-60)).current;
-  const searchAnim = useRef(new Animated.Value(0)).current;
-  const badgeAnim = useRef(new Animated.Value(0)).current;
+
+
+function MapTabInner(props: any) {
+  const { mapResult, loading, fetchMap } = usePlaces();
+  const { user } = useUser();
+  // Set a default location for initial map load
+  const [location, setLocation] = useState('Rajwada, Indore');
+  const [showResult, setShowResult] = useState(true);
+  // Default to 'tourism' so tourist attractions are shown on first load
+  const [nearbyType, setNearbyType] = useState('restaurant');
   const mapAnim = useRef(new Animated.Value(0)).current;
-  const markerAnim0 = useRef(new Animated.Value(0));
-  const markerAnim1 = useRef(new Animated.Value(0));
-  const markerAnim2 = useRef(new Animated.Value(0));
-  const markerAnim3 = useRef(new Animated.Value(0));
-  const markerAnim4 = useRef(new Animated.Value(0));
-  const markerAnims = [
-    markerAnim0.current,
-    markerAnim1.current,
-    markerAnim2.current,
-    markerAnim3.current,
-    markerAnim4.current,
-  ];
-  const fabAnim = useRef(new Animated.Value(0)).current;
-  const locationAnim = useRef(new Animated.Value(0)).current;
-
-  // Example price marker positions (percentages of width/height)
-  const priceMarkers = [
-    { price: '$120', top: `32%`, left: `55%` },
-    { price: '$78', top: `18%`, left: `70%` },
-    { price: '$156', top: `28%`, left: `75%` },
-    { price: '$95', top: `54%`, left: `44%` },
-    { price: '$89', top: `60%`, left: `55%` },
-  ];
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.timing(topBarAnim, { toValue: 0, duration: 400, easing: Easing.out(Easing.exp), useNativeDriver: true }),
-      Animated.timing(searchAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      Animated.timing(badgeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      Animated.timing(mapAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.stagger(100, markerAnims.map((a) => Animated.timing(a, { toValue: 1, duration: 350, useNativeDriver: true }))),
-      Animated.parallel([
-        Animated.timing(fabAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-        Animated.timing(locationAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      ]),
-    ]).start();
-  }, [topBarAnim, searchAnim, badgeAnim, mapAnim, markerAnims, fabAnim, locationAnim]);
+    Animated.timing(mapAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [mapAnim]);
 
-  // API call to backend
-  // Map frontend nearbyType to backend show_nearby value
-  // Pass the Picker value directly as show_nearby (must be plural to match backend)
-  const getShowNearbyValue = (type) => {
-  if (type === 'tourism') return 'tourism';
-  if (type === 'restaurants0') return 'restaurant';
-  if (type === 'hotels') return 'hotel';
-  if (type === 'cafes') return 'cafe';
-  return '';
+  // Accept both singular and plural, always return backend value
+  const getShowNearbyValue = (type: string) => {
+    if (type === 'tourism' || type === 'Tourist Attractions') return 'tourism';
+    if (type === 'restaurant' || type === 'restaurants' || type === 'Restaurants') return 'restaurant';
+    if (type === 'hotel' || type === 'hotels' || type === 'Hotels') return 'hotel';
+    if (type === 'cafe' || type === 'cafes' || type === 'Cafes') return 'cafe';
+    return '';
   };
 
+  // Fetch map on mount and whenever location or nearbyType changes
+  useEffect(() => {
+    const showNearby = getShowNearbyValue(nearbyType);
+    // Pass user.clerk_id to fetchMap for user-specific data
+    fetchMap(location, user?.clerk_id, showNearby);
+    setShowResult(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, nearbyType, user?.clerk_id]);
+
   const handleSearch = async () => {
-    setLoading(true);
-    setResult(null);
-    try {
-      const params = new URLSearchParams();
-      params.append('location', location);
-      const showNearby = getShowNearbyValue(nearbyType);
-      console.log('Selected nearbyType:', nearbyType, 'Mapped show_nearby:', showNearby);
-      if (showNearby) params.append('show_nearby', showNearby);
-      const res = await fetch(`http://192.168.100.5:8000/api/map?${params.toString()}`);
-      const data = await res.json();
-      setResult(data);
-    } catch (e) {
-      setResult({ error: 'Failed to fetch map data' });
-    }
-    setLoading(false);
+    const showNearby = getShowNearbyValue(nearbyType);
+    await fetchMap(location, user?.clerk_id, showNearby);
+    setShowResult(true);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Top Bar with Avatar, Search, Filter */}
-      <Animated.View style={[styles.topBar, { transform: [{ translateY: topBarAnim }] }]}> 
-        <Image source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} style={styles.avatar} />
-        <Animated.View style={[styles.searchBar, { opacity: searchAnim, transform: [{ scale: searchAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] }]}> 
-          <MapPin size={20} color="#bbb" />
+    <View style={styles.container}>
+      {/* Floating Search Bar with Search Icon */}
+      <View style={styles.floatingSearchBar}>
+        <View style={styles.searchBar}>
+          <MapPin size={20} color="#b0b6c8" />
           <TextInput
             style={styles.searchInput}
             placeholder="Where to?"
             placeholderTextColor="#bbb"
             value={location}
             onChangeText={setLocation}
+            returnKeyType="search"
           />
-        </Animated.View>
-      
-      </Animated.View>
-      {/* Nearby places dropdown and search button in a row below search bar */}
-      <View style={{ flexDirection: 'row', marginHorizontal: 16, marginTop: 10, marginBottom: 8, alignItems: 'center' }}>
-        <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#eee', marginRight: 10 }}>
-          <Picker
-            selectedValue={nearbyType}
-            onValueChange={setNearbyType}
-            style={{ height: 64 }}
-            itemStyle={{ fontSize: 16 }}
+          <TouchableOpacity
+            style={styles.searchIconBtn}
+            onPress={async () => { setShowResult(false); await handleSearch(); setShowResult(true); }}
+            activeOpacity={0.85}
           >
-            <Picker.Item label="No nearby places" value="" />
-            <Picker.Item label="Tourist Attractions" value="tourism" />
-            <Picker.Item label="Restaurants" value="restaurants" />
-            <Picker.Item label="Hotels" value="hotels" />
-            <Picker.Item label="Cafes" value="cafes" />
-          </Picker>
+            <Search size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={{ backgroundColor: '#14b8a6', borderRadius: 18, paddingVertical: 12, paddingHorizontal: 22, alignItems: 'center', justifyContent: 'center', minWidth: 120 }}
-          onPress={handleSearch}
-          disabled={loading}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{loading ? 'Loading...' : 'Show on Map'}</Text>
-        </TouchableOpacity>
       </View>
-      {/* Animated Map Area with Gradient (hide demo markers if result shown) */}
-      <Animated.View style={[styles.mapArea, { opacity: mapAnim }]}> 
-        <LinearGradient
-          colors={["#e0f7fa", "#e0e7ef", "#f8fafc"]}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.mapGradient}
-        />
-        {/* Show demo price markers only if no result */}
-      
-        {/* If result, show map HTML or error */}
-        {loading && (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <ActivityIndicator size="large" color="#14b8a6" />
-            <Text style={{ marginTop: 8, color: '#14b8a6' }}>Loading map...</Text>
-          </View>
-        )}
-        {result && result.success && result.map_html && (
-          <WebView
-            originWhitelist={["*"]}
-            source={{ html: result.map_html }}
-            style={{ flex: 1, minHeight: 500, borderRadius: 12, margin: 0 }}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            scalesPageToFit={true}
-            automaticallyAdjustContentInsets={false}
+
+      {/* Pill-shaped dropdown for place selection */}
+      <View style={styles.dropdownLabelFloating}>
+        <Picker
+          selectedValue={nearbyType}
+          onValueChange={setNearbyType}
+          style={{
+            width: 160,
+            color: '#4C6FFF',
+            fontSize: 15,
+            borderRadius: 18,
+            backgroundColor: 'transparent',
+            textAlign: 'center',
+            alignSelf: 'center',
+          }}
+          itemStyle={{ fontSize: 15, textAlign: 'center' }}
+        >
+          <Picker.Item label="Nearby Place" value="" />
+          <Picker.Item label="Tourist Attractions" value="tourism" />
+          <Picker.Item label="Restaurants" value="restaurant" />
+          <Picker.Item label="Hotels" value="hotel" />
+          <Picker.Item label="Cafes" value="cafe" />
+        </Picker>
+      </View>
+
+      {/* Fullscreen Map Area, only show after search */}
+      {showResult && (
+        <Animated.View style={[styles.mapArea, { opacity: mapAnim }]}> 
+          <LinearGradient
+            colors={["#232946", "#232946", "#232946"]}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
           />
-        )}
-        {result && (!result.success || !result.map_html) && (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 12 }}>
-            <Text style={{ color: 'red', fontWeight: 'bold' }}>{result.error || 'Error loading map'}</Text>
-          </View>
-        )}
-      </Animated.View>
-      {/* Removed List, Plus, Send, and Location icons from the bottom for a cleaner UI */}
-    </SafeAreaView>
+          {loading && (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="large" color="#4C6FFF" />
+              <Text style={{ marginTop: 8, color: '#4C6FFF' }}>Loading map...</Text>
+            </View>
+          )}
+          {!loading && mapResult && mapResult.success && mapResult.map_html && (
+            <WebView
+              originWhitelist={["*"]}
+              source={{ html: mapResult.map_html }}
+              style={{ flex: 1, minHeight: 500, borderRadius: 0, margin: 0 }}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              scalesPageToFit={true}
+              automaticallyAdjustContentInsets={false}
+            />
+          )}
+          {!loading && mapResult && (!mapResult.success || !mapResult.map_html) && (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 12 }}>
+              <Text style={{ color: 'red', fontWeight: 'bold' }}>{mapResult.error || 'No results found for this search.'}</Text>
+            </View>
+          )}
+          {!loading && !mapResult && (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 12 }}>
+              <Text style={{ color: '#bbb', fontWeight: 'bold' }}>Search for a place to see the map.</Text>
+            </View>
+          )}
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+export default function MapTab(props: any) {
+  return (
+    <PlacesProvider>
+      <MapTabInner {...props} />
+    </PlacesProvider>
   );
 }

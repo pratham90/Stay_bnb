@@ -1,9 +1,36 @@
 import React, { useState } from 'react';
+import { useUser } from '../context/UserContext';
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Feather, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-export function ListingDetails({ listingId, onBack, onChatClick }: { listingId: number; onBack: () => void; onChatClick: () => void }) {
+export function ListingDetails({ listingId, onBack, onChatClick, listing }: { listingId: number; onBack: () => void; onChatClick: () => void; listing: any }) {
+  // listing: { item_id, name, image_url, type }
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const { user } = useUser();
+
+  const handleLikeToggle = async () => {
+    if (!user) return;
+    const category = listing.type?.toLowerCase() || 'hotels';
+    const url = `http://192.168.100.2:8000/api/users/${user.clerk_id}/likes/${category}`;
+    if (!isFavorite) {
+      // Like
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_id: listing.item_id,
+          name: listing.name,
+          image_url: listing.image_url,
+          type: listing.type
+        })
+      });
+      setIsFavorite(true);
+    } else {
+      // Dislike
+      await fetch(`${url}/${listing.item_id}`, { method: 'DELETE' });
+      setIsFavorite(false);
+    }
+  };
 
   const images = [
     'https://images.unsplash.com/photo-1594873604892-b599f847e859?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBhcGFydG1lbnQlMjBpbnRlcmlvcnxlbnwxfHx8fDE3NjEzMTc0NTZ8MA&ixlib=rb-4.1.0&q=80&w=1080',
@@ -151,7 +178,7 @@ export function ListingDetails({ listingId, onBack, onChatClick }: { listingId: 
           <TouchableOpacity style={styles.headerBtn}>
             <Feather name="share" size={22} color="#333" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setIsFavorite(!isFavorite)}>
+          <TouchableOpacity style={styles.headerBtn} onPress={handleLikeToggle}>
             <Feather name="heart" size={22} color={isFavorite ? "#ef4444" : "#333"} />
           </TouchableOpacity>
         </View>

@@ -24,7 +24,7 @@ interface ExploreScreenProps {
 
 export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
   const [selectedCity, setSelectedCity] = useState('New York');
-  const [favorites, setFavorites] = useState<Set<number>>(new Set([1, 3]));
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [searchFocused, setSearchFocused] = useState(false);
   const [placeType, setPlaceType] = useState<'hotel' | 'restaurant' | 'tourism'>('hotel');
   const [places, setPlaces] = useState<any[]>([]);
@@ -85,17 +85,17 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
     fetchPlaces();
   }, [selectedCity, placeType]);
 
-  const toggleFavorite = (id: number) => {
+  const toggleFavorite = (key: string) => {
     setFavorites(prev => {
       const newFavorites = new Set(prev);
-      if (newFavorites.has(id)) {
-        newFavorites.delete(id);
+      if (newFavorites.has(key)) {
+        newFavorites.delete(key);
       } else {
-        newFavorites.add(id);
+        newFavorites.add(key);
       }
       return newFavorites;
     });
-  };
+  } 
 
   return (
     <View style={styles.container}>
@@ -158,57 +158,61 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
           {places.length === 0 && (
             <Text style={{ textAlign: 'center', color: '#888', marginTop: 32 }}>No results found.</Text>
           )}
-          {places.map((item, idx) => (
-            <Animated.View
-              key={item._id || item.id || item.name + idx}
-              style={{
-                opacity: cardAnim[idx % cardAnim.length],
-                transform: [{ translateY: cardAnim[idx % cardAnim.length].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
-              }}
-            >
-              <TouchableOpacity
-                style={styles.listingCard}
-                onPress={() => onListingClick(item._id || item.id || idx)}
+          {places.map((item, idx) => {
+            // Always use a string key for consistency
+            const key = String(item._id || item.id || item.name || idx);
+            return (
+              <Animated.View
+                key={key}
+                style={{
+                  opacity: cardAnim[idx % cardAnim.length],
+                  transform: [{ translateY: cardAnim[idx % cardAnim.length].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+                }}
               >
-                <View style={styles.listingImageContainer}>
-                  <Image source={{ uri: item.image || 'https://placehold.co/400x200?text=No+Image' }} style={styles.listingImage} />
-                  <TouchableOpacity
-                    style={styles.favoriteButton}
-                    onPress={() => toggleFavorite(item._id || item.id || idx)}
-                  >
-                    <Heart size={20} color={favorites.has(item._id || item.id || idx) ? '#ef4444' : '#888'} />
-                  </TouchableOpacity>
-                  <View style={styles.badgeContainer}>
-                    <Badge label={item.type || placeType} variant="default" />
-                  </View>
-                </View>
-                <View style={styles.listingInfo}>
-                  <View style={styles.listingTitleRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.listingTitle}>{item.name || item.title || item.display_name}</Text>
-                      <View style={styles.listingLocationRow}>
-                        <MapPin size={14} color="#888" />
-                        <Text style={styles.listingLocation}>{item.address || item.location || selectedCity}</Text>
-                      </View>
+                <TouchableOpacity
+                  style={styles.listingCard}
+                  onPress={() => onListingClick(item._id || item.id || idx)}
+                >
+                  <View style={styles.listingImageContainer}>
+                    <Image source={{ uri: item.image || 'https://placehold.co/400x200?text=No+Image' }} style={styles.listingImage} />
+                    <TouchableOpacity
+                      style={styles.favoriteButton}
+                      onPress={() => toggleFavorite(key)}
+                    >
+                      <Heart size={20} color={favorites.has(key) ? '#ef4444' : '#888'} />
+                    </TouchableOpacity>
+                    <View style={styles.badgeContainer}>
+                      <Badge label={item.type || placeType} variant="default" />
                     </View>
-                    {item.rating && (
-                      <View style={styles.listingRatingRow}>
-                        <Star size={16} color="#facc15" />
-                        <Text style={styles.listingRating}>{item.rating}</Text>
+                  </View>
+                  <View style={styles.listingInfo}>
+                    <View style={styles.listingTitleRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.listingTitle}>{item.name || item.title || item.display_name}</Text>
+                        <View style={styles.listingLocationRow}>
+                          <MapPin size={14} color="#888" />
+                          <Text style={styles.listingLocation}>{item.address || item.location || selectedCity}</Text>
+                        </View>
                       </View>
+                      {item.rating && (
+                        <View style={styles.listingRatingRow}>
+                          <Star size={16} color="#facc15" />
+                          <Text style={styles.listingRating}>{item.rating}</Text>
+                        </View>
+                      )}
+                    </View>
+                    {item.distance && <Text style={styles.listingDistance}>{item.distance}</Text>}
+                    {item.price && (
+                      <Text style={styles.listingPrice}>
+                        ${item.price}
+                        <Text style={styles.listingPriceNight}> / night</Text>
+                      </Text>
                     )}
                   </View>
-                  {item.distance && <Text style={styles.listingDistance}>{item.distance}</Text>}
-                  {item.price && (
-                    <Text style={styles.listingPrice}>
-                      ${item.price}
-                      <Text style={styles.listingPriceNight}> / night</Text>
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          ))}
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
         </ScrollView>
       )}
     </View>

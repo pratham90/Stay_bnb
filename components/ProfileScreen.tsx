@@ -1,9 +1,14 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useUser } from '../context/UserContext';
 
 export function ProfileScreen() {
+  const { user, likes, fetchUserLikes } = useUser();
+  useEffect(() => {
+    if (user?.clerk_id) fetchUserLikes(user.clerk_id);
+  }, [user?.clerk_id]);
   const menuItems = [
     { icon: 'settings', label: 'Account Settings', badge: null },
     { icon: 'heart', label: 'Saved', badge: 12 },
@@ -80,6 +85,25 @@ export function ProfileScreen() {
           </View>
           <Text style={styles.logoutLabel}>Logout</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* SAVED/LIKED ITEMS SECTION */}
+      <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+        <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#222' }}>Saved Items</Text>
+        {['hotels', 'restaurants', 'tourism'].map((cat) => (
+          <View key={cat} style={{ marginBottom: 12 }}>
+            <Text style={{ fontWeight: 'bold', color: '#06b6d4', marginBottom: 4, fontSize: 15 }}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</Text>
+            {(likes?.[cat]?.length > 0) ? likes[cat].map((item: any) => (
+              <View key={item.item_id} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 10, marginBottom: 6, flexDirection: 'row', alignItems: 'center' }}>
+                <Image source={{ uri: item.image_url }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#eee' }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: 'bold', color: '#222' }}>{item.name}</Text>
+                  <Text style={{ color: '#888', fontSize: 13 }}>{item.type || ''}</Text>
+                </View>
+              </View>
+            )) : <Text style={{ color: '#888', fontSize: 13 }}>No saved {cat}.</Text>}
+          </View>
+        ))}
       </View>
 
       <View style={styles.activitySection}>
