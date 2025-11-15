@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import api from '../utils/api';
 
 export type PlaceType = 'hotel' | 'restaurant' | 'tourism' | 'map';
 
@@ -33,8 +34,7 @@ export const PlacesProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const endpoint = type === 'map' ? 'map' : type + 's';
       const userIdParam = userId ? `&clerk_id=${encodeURIComponent(userId)}` : '';
-      const res = await fetch(`http://192.168.100.2:8000/api/${endpoint}?location=${encodeURIComponent(location)}&limit=10${userIdParam}`);
-      const data = await res.json();
+      const { data } = await api.get(`/api/${endpoint}?location=${encodeURIComponent(location)}&limit=10${userIdParam}`);
       setPlaces(data.data || data);
     } catch (err: any) {
       setError(err.message || 'Unknown error');
@@ -52,8 +52,7 @@ export const PlacesProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       params.append('location', location);
       if (nearbyType) params.append('show_nearby', nearbyType);
       if (userId) params.append('clerk_id', userId);
-      const res = await fetch(`http://192.168.100.2:8000/api/map?${params.toString()}`);
-      const data = await res.json();
+      const { data } = await api.get(`/api/map?${params.toString()}`);
       setMapResult(data);
     } catch (err: any) {
       setError(err.message || 'Unknown error');

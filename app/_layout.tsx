@@ -17,8 +17,6 @@ import { StatusBar } from 'expo-status-bar';
 
 export default function RootLayout() {
   // Clerk session persistence for Expo
-  const colorScheme = useColorScheme();
-  const clerkPubKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const tokenCache = {
     getToken: SecureStore.getItemAsync,
     saveToken: SecureStore.setItemAsync,

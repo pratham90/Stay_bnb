@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../../utils/api';
 import { useUser } from '@/context/UserContext';
 import { PlacesProvider } from '@/context/PlacesContext';
 import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Animated, TextInput } from 'react-native';
@@ -12,8 +13,8 @@ const styles = StyleSheet.create({
     categoryChipsRow: {
       flexDirection: 'row',
       justifyContent: 'center',
-      marginTop: 22,
-      marginBottom: 8,
+      marginTop: 15,
+      
       gap: 16,
     },
     categoryChip: {
@@ -66,6 +67,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     paddingTop: 0,
+
   },
   floatingSearchBar: {
     position: 'absolute',
@@ -74,15 +76,16 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     alignItems: 'center',
+    height: 120,
   },
   searchBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 28,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    shadowColor: '#4C6FFF',
+    shadowColor: '#1c2c2eff',
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 6,
@@ -318,9 +321,9 @@ export function ExploreTab(props: any) {
     try {
       const userIdParam = user?.clerk_id ? `&clerk_id=${encodeURIComponent(user.clerk_id)}` : '';
       const [hotelsRes, restaurantsRes, tourismRes] = await Promise.all([
-        fetch(`http://192.168.100.2:8000/api/hotels?location=${encodeURIComponent(city)}&limit=10${userIdParam}`).then(r => r.json()),
-        fetch(`http://192.168.100.2:8000/api/restaurants?location=${encodeURIComponent(city)}&limit=10${userIdParam}`).then(r => r.json()),
-        fetch(`http://192.168.100.2:8000/api/tourism?location=${encodeURIComponent(city)}&limit=10${userIdParam}`).then(r => r.json()),
+        api.get(`/api/hotels?location=${encodeURIComponent(city)}&limit=10${userIdParam}`).then(r => r.data),
+        api.get(`/api/restaurants?location=${encodeURIComponent(city)}&limit=10${userIdParam}`).then(r => r.data),
+        api.get(`/api/tourism?location=${encodeURIComponent(city)}&limit=10${userIdParam}`).then(r => r.data),
       ]);
       setHotels(hotelsRes.data || hotelsRes);
       setRestaurants(restaurantsRes.data || restaurantsRes);
@@ -350,43 +353,48 @@ export function ExploreTab(props: any) {
     if (type === 'hotel') return 'hotels';
     if (type === 'restaurant') return 'restaurants';
     if (type === 'tourism') return 'tourism';
-    return '';
+    return type;
   };
 
   // Like/unlike handler
-  const toggleFavorite = async (item: any, type: 'hotel' | 'restaurant' | 'tourism') => {
-    console.log('toggleFavorite called', { user, item, type });
+  const toggleFavorite = async (item: any, type: 'hotel' | 'restaurant' | 'tourism', idx?: number) => {
     if (!user?.clerk_id) {
-      console.log('No user or clerk_id, aborting like');
       return;
     }
     const category = getCategory(type);
-    const itemId = item._id || item.id || item.item_id;
+    let itemId = '';
+    if (type === 'restaurant') {
+      itemId = String(item.restaurant_id || item._id);
+    } else if (type === 'hotel') {
+      itemId = String(item.hotel_id || item._id);
+    } else if (type === 'tourism') {
+      itemId = String(item.place_id || item._id);
+    }
+    if (!itemId || itemId === 'undefined' || itemId === 'null') {
+      console.warn('Cannot like/unlike: item ID is undefined or not present in data');
+      return;
+    }
     const isFav = favorites[itemId];
     setFavorites(prev => ({ ...prev, [itemId]: !isFav }));
     try {
       if (!isFav) {
-        console.log('Sending LIKE request', { url: `http://192.168.100.2:8000/api/users/${user.clerk_id}/likes/${category}`, item });
-        await fetch(`http://192.168.100.2:8000/api/users/${user.clerk_id}/likes/${category}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            item_id: itemId,
-            name: item.name || item.title || item.display_name,
-            image_url: item.image_url,
-            type: type,
-          }),
-        });
+        const payload = {
+          item_id: itemId,
+          name: item.name || item.title || item.display_name || '',
+          image_url: item.image_url || item.image || '',
+          type: category,
+        };
+        console.log('Sending LIKE request:', `/api/users/${user.clerk_id}/likes/${category}`, payload);
+        await api.post(`/api/users/${user.clerk_id}/likes/${category}`, payload);
       } else {
-        console.log('Sending UNLIKE request', { url: `http://192.168.100.2:8000/api/users/${user.clerk_id}/likes/${category}/${itemId}` });
-        await fetch(`http://192.168.100.2:8000/api/users/${user.clerk_id}/likes/${category}/${itemId}`, {
-          method: 'DELETE',
-        });
+        console.log('Sending UNLIKE request:', `/api/users/${user.clerk_id}/likes/${category}/${itemId}`);
+        await api.delete(`/api/users/${user.clerk_id}/likes/${category}/${itemId}`);
       }
       // Refresh likes in profile
       fetchUserLikes(user.clerk_id);
     } catch (e) {
-      console.log('Error in toggleFavorite', e);
+      // Optionally handle error for production
+      console.error('Error updating favorite:', e);
     }
   };
 
@@ -404,7 +412,7 @@ export function ExploreTab(props: any) {
             onChangeText={setInputCity}
           />
           <TouchableOpacity
-            style={{ marginLeft: 8, backgroundColor: '#4C6FFF', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}
+            style={{ marginLeft: 8, backgroundColor: '#67cee8ff', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}
             onPress={handleSearch}
           >
             <Text style={{ color: '#fff', fontWeight: 'bold' }}>
@@ -415,9 +423,9 @@ export function ExploreTab(props: any) {
         {/* Enhanced Category Chips */}
         <View style={styles.categoryChipsRow}>
           {[
-            { type: 'hotel', label: 'Hotels', icon: 'hotel', gradient: ['#4C6FFF', '#7B8CFF'] },
-            { type: 'restaurant', label: 'Restaurant', icon: 'utensils', gradient: ['#4C6FFF', '#A5B4FC'] },
-            { type: 'tourism', label: 'Tourism', icon: 'map-pin', gradient: ['#4C6FFF', '#C7D2FE'] },
+            { type: 'hotel', label: 'Hotels', icon: 'hotel', gradient: ['#4cbdffff', '#41a5f2ff'] },
+            { type: 'restaurant', label: 'Restaurant', icon: 'utensils', gradient: ['#4cbdffff', '#41a5f2ff'] },
+            { type: 'tourism', label: 'Tourism', icon: 'map-pin', gradient: ['#4cbdffff', '#41a5f2ff'] },
           ].map(({ type, label, icon, gradient }) => {
             const isActive = selectedType === type;
             return (
@@ -448,7 +456,7 @@ export function ExploreTab(props: any) {
                     }}
                   />
                 ) : null}
-                <IconSymbol name={icon} size={18} color={isActive ? '#fff' : '#4C6FFF'} />
+                <IconSymbol name={icon} size={18} color={isActive ? '#fff' : '#4cdeffff'} />
                 <Text style={[
                   styles.categoryChipText,
                   isActive && styles.categoryChipTextActive,
@@ -466,21 +474,23 @@ export function ExploreTab(props: any) {
         {selectedType === 'hotel' && (
           hotels && hotels.length > 0 ? hotels.map((item, idx) => {
             const anim = hotelCardAnim.current && hotelCardAnim.current[idx] ? hotelCardAnim.current[idx] : new Animated.Value(1);
-            const itemId = item._id || item.id || item.item_id || idx;
+            const itemId = item.hotel_id || item._id;
             return (
               <Animated.View
-                key={itemId}
+                key={itemId || idx}
                 style={[styles.listingCard, { transform: [{ scale: anim }] }]}
               >
                 <TouchableOpacity onPress={() => {}}>
                   <View style={styles.listingImageContainer}>
                     <Image source={{ uri: item.image_url || PLACEHOLDER_IMAGE }} style={styles.listingImage} />
-                    <TouchableOpacity
-                      style={styles.favoriteButton}
-                      onPress={() => toggleFavorite(item, 'hotel')}
-                    >
-                      <Heart size={20} color={favorites[itemId] ? '#ef4444' : '#888'} />
-                    </TouchableOpacity>
+                    {(item.hotel_id || item._id) && (
+                      <TouchableOpacity
+                        style={styles.favoriteButton}
+                        onPress={() => toggleFavorite(item, 'hotel', idx)}
+                      >
+                        <Heart size={20} color={favorites[itemId] ? '#ef4444' : '#888'} />
+                      </TouchableOpacity>
+                    )}
                     <View style={styles.badgeContainer}>
                       <Badge label={'hotel'} variant="default" />
                     </View>
@@ -517,21 +527,23 @@ export function ExploreTab(props: any) {
         {selectedType === 'restaurant' && (
           restaurants && restaurants.length > 0 ? restaurants.map((item, idx) => {
             const anim = restaurantCardAnim.current && restaurantCardAnim.current[idx] ? restaurantCardAnim.current[idx] : new Animated.Value(1);
-            const itemId = item._id || item.id || item.item_id || idx;
+            const itemId = item.restaurant_id || item._id;
             return (
               <Animated.View
-                key={itemId}
+                key={itemId || idx}
                 style={[styles.listingCard, { transform: [{ scale: anim }] }]}
               >
                 <TouchableOpacity onPress={() => {}}>
                   <View style={styles.listingImageContainer}>
                     <Image source={{ uri: item.image_url || PLACEHOLDER_IMAGE }} style={styles.listingImage} />
-                    <TouchableOpacity
-                      style={styles.favoriteButton}
-                      onPress={() => toggleFavorite(item, 'restaurant')}
-                    >
-                      <Heart size={20} color={favorites[itemId] ? '#ef4444' : '#888'} />
-                    </TouchableOpacity>
+                    {(item.restaurant_id || item._id) && (
+                      <TouchableOpacity
+                        style={styles.favoriteButton}
+                        onPress={() => toggleFavorite(item, 'restaurant', idx)}
+                      >
+                        <Heart size={20} color={favorites[itemId] ? '#ef4444' : '#888'} />
+                      </TouchableOpacity>
+                    )}
                     <View style={styles.badgeContainer}>
                       <Badge label={'restaurant'} variant="default" />
                     </View>
@@ -568,21 +580,23 @@ export function ExploreTab(props: any) {
         {selectedType === 'tourism' && (
           tourism && tourism.length > 0 ? tourism.map((item, idx) => {
             const anim = tourismCardAnim.current && tourismCardAnim.current[idx] ? tourismCardAnim.current[idx] : new Animated.Value(1);
-            const itemId = item._id || item.id || item.item_id || idx;
+            const itemId = item.place_id || item._id;
             return (
               <Animated.View
-                key={itemId}
+                key={itemId || idx}
                 style={[styles.listingCard, { transform: [{ scale: anim }] }]}
               >
                 <TouchableOpacity onPress={() => {}}>
                   <View style={styles.listingImageContainer}>
                     <Image source={{ uri: item.image_url || PLACEHOLDER_IMAGE }} style={styles.listingImage} />
-                    <TouchableOpacity
-                      style={styles.favoriteButton}
-                      onPress={() => toggleFavorite(item, 'tourism')}
-                    >
-                      <Heart size={20} color={favorites[itemId] ? '#ef4444' : '#888'} />
-                    </TouchableOpacity>
+                    {(item.place_id || item._id) && (
+                      <TouchableOpacity
+                        style={styles.favoriteButton}
+                        onPress={() => toggleFavorite(item, 'tourism', idx)}
+                      >
+                        <Heart size={20} color={favorites[itemId] ? '#ef4444' : '#888'} />
+                      </TouchableOpacity>
+                    )}
                     <View style={styles.badgeContainer}>
                       <Badge label={'tourism'} variant="default" />
                     </View>

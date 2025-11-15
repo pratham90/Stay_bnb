@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSignIn, useSignUp, useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 
+import api from '../utils/api';
+
 export default function AuthScreen() {
   const { user } = useUser();
   const { isSignedIn } = useAuth();
@@ -18,10 +20,16 @@ export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [pendingVerification, setPendingVerification] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [loading, setLoading] = useState(false);
+    React.useEffect(() => {
+      // Log login status in terminal
+      // eslint-disable-next-line no-console
+      console.log('User logged in:', isSignedIn);
+    }, [isSignedIn]);
   const signIn = useSignIn();
   const signUp = useSignUp();
 
@@ -49,14 +57,10 @@ export default function AuthScreen() {
 
   const registerUserInBackend = async (clerkId: string, name: string, email: string) => {
     try {
-      await fetch('http://192.168.100.2:8000/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clerk_id: clerkId,
-          name,
-          email
-        })
+      await api.post('/api/users', {
+        clerk_id: clerkId,
+        name,
+        email
       });
     } catch {
       // Optionally handle error
@@ -71,10 +75,8 @@ export default function AuthScreen() {
       const res = await signUp.signUp.create({ emailAddress: email, password });
       if (res.status === 'complete') {
         await signUp.setActive({ session: res.createdSessionId });
-        // Register user in backend
-        if (user) {
-          await registerUserInBackend(user.id, user.fullName || user.username || '', user.primaryEmailAddress?.emailAddress || email);
-        }
+        // Register user in backend with entered name/email
+        await registerUserInBackend(res.createdUserId || user?.id || '', name, email);
       } else if (res.status === 'missing_requirements') {
         await signUp.signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
         setPendingVerification(true);
@@ -96,10 +98,8 @@ export default function AuthScreen() {
       if (res.status === 'complete') {
         await signUp.setActive({ session: res.createdSessionId });
         setPendingVerification(false);
-        // Register user in backend after verification
-        if (user) {
-          await registerUserInBackend(user.id, user.fullName || user.username || '', user.primaryEmailAddress?.emailAddress || email);
-        }
+        // Register user in backend after verification with correct name/email
+        await registerUserInBackend(res.createdUserId || user?.id || '', name, email);
       } else {
         setError('Verification failed.');
       }
@@ -110,7 +110,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <LinearGradient colors={["#06b6d4", "#14b8a6"]} style={styles.gradientBg}>
+    <LinearGradient colors={["#b8edf6ff", "#96d3eaff", "#3aafd9ff"]} style={styles.gradientBg}>
       <View style={styles.logoWrap}>
         <View style={styles.logoCircle}>
           <Image source={require('../assets/images/icon.png')} style={styles.logoIcon} />
@@ -128,6 +128,18 @@ export default function AuthScreen() {
           </TouchableOpacity>
         </View>
         <View style={{ marginTop: 12 }}>
+          {!isLogin && (
+            <View style={styles.inputRow}>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Name"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
+          )}
           <View style={styles.inputRow}>
             <Text style={styles.inputLabel}>Email</Text>
             <TextInput
@@ -208,7 +220,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   loginBtn: {
-    backgroundColor: '#14b8a6',
+    backgroundColor: '#59bbf5ff',
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: 'center',
@@ -279,7 +291,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   tabActive: {
-    backgroundColor: '#14b8a6',
+    backgroundColor: '#59bbf5ff',
   },
   tabText: {
     fontSize: 16,

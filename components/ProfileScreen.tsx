@@ -1,14 +1,31 @@
-
-import React, { useEffect } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Feather, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Image, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
+import { Heart } from 'lucide-react-native';
+import api from '../utils/api';
 
 export function ProfileScreen() {
   const { user, likes, fetchUserLikes } = useUser();
+  const [localImage, setLocalImage] = useState<string | null>(null);
+  const [savedVisible, setSavedVisible] = useState(false);
+  const [selectedCat, setSelectedCat] = useState<'hotels' | 'restaurants' | 'tourism'>('hotels');
   useEffect(() => {
     if (user?.clerk_id) fetchUserLikes(user.clerk_id);
   }, [user?.clerk_id]);
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setLocalImage(result.assets[0].uri);
+    }
+  };
   const menuItems = [
     { icon: 'settings', label: 'Account Settings', badge: null },
     { icon: 'heart', label: 'Saved', badge: 12 },
@@ -29,52 +46,75 @@ export function ProfileScreen() {
     { action: 'Reviewed', place: 'Mountain Cabin', time: '1 week ago', image: 'https://images.unsplash.com/photo-1623015522585-ddc7e066a821?w=100' },
   ];
 
+  const getItemId = (item: any, cat: string) => {
+    if (cat === 'hotels') return item.hotel_id || item.item_id || item._id;
+    if (cat === 'restaurants') return item.restaurant_id || item.item_id || item._id;
+    if (cat === 'tourism') return item.place_id || item.item_id || item._id;
+    return item.item_id || item._id;
+  };
+  const getCategory = (cat: string) => {
+    if (cat === 'hotels') return 'hotels';
+    if (cat === 'restaurants') return 'restaurants';
+    if (cat === 'tourism') return 'tourism';
+    return cat;
+  };
+  const toggleFavorite = async (item: any, cat: string) => {
+    if (!user?.clerk_id) return;
+    const category = getCategory(cat);
+    const itemId = getItemId(item, cat);
+    if (!itemId) return;
+    // Check if item is currently liked
+    const isLiked = likes?.[cat]?.some((liked: any) => getItemId(liked, cat) === itemId);
+    try {
+      if (isLiked) {
+        await api.delete(`/api/users/${user.clerk_id}/likes/${category}/${itemId}`);
+      } else {
+        await api.post(`/api/users/${user.clerk_id}/likes/${category}`, {
+          item_id: itemId,
+          name: item.name,
+          image_url: item.image_url,
+          type: category,
+        });
+      }
+      fetchUserLikes(user.clerk_id);
+    } catch (e) {
+      console.error('Error toggling favorite:', e);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.headerBg}>
         <View style={styles.headerContent}>
           <View style={styles.avatarWrapper}>
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1539605480396-a61f99da1041?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9maWxlJTIwcG9ydHJhaXQlMjBwZXJzb258ZW58MXx8fHwxNzYxMjI1MTE4fDA&ixlib=rb-4.1.0&q=80&w=1080' }}
+              source={localImage ? { uri: localImage } : { uri: 'https://images.unsplash.com/photo-1539605480396-a61f99da1041?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9maWxlJTIwcG9ydHJhaXQlMjBwZXJzb258ZW58MXx8fHwxNzYxMjI1MTE4fDA&ixlib=rb-4.1.0&q=80&w=1080' }}
               style={styles.avatar}
             />
-            <View style={styles.starBadge}>
-              <Feather name="star" size={18} color="#facc15" />
-            </View>
+            <TouchableOpacity onPress={pickImage} style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 16, padding: 6, elevation: 2 }}>
+              <Feather name="camera" size={18} color="#06b6d4" />
+            </TouchableOpacity>
+           
           </View>
-          <Text style={styles.name}>Sarah Anderson</Text>
-          <Text style={styles.email}>sarah.anderson@email.com</Text>
-          <View style={styles.locationRow}>
-            <Feather name="map-pin" size={16} color="#fff" />
-            <Text style={styles.locationText}>New York, USA</Text>
-          </View>
-          <View style={styles.superhostBadge}>
-            <Text style={styles.superhostText}>Superhost</Text>
-          </View>
-          <View style={styles.statsRow}>
-            {stats.map((stat) => (
-              <View key={stat.label} style={styles.statItem}>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
-            ))}
-          </View>
+          <Text style={styles.name}>{user?.name || 'No Name'}</Text>
+          <Text style={styles.email}>{user?.email || 'No Email'}</Text>
+          {/* ...existing code... */}
         </View>
       </View>
 
       <View style={styles.menuSection}>
         {menuItems.map((item, idx) => (
-          <TouchableOpacity key={item.label} style={styles.menuItem}>
+          <TouchableOpacity
+            key={item.label}
+            style={styles.menuItem}
+            onPress={item.label === 'Saved' ? () => setSavedVisible(true) : undefined}
+          >
             <View style={styles.menuIconWrapper}>
-              <Feather name={item.icon} size={22} color="#06b6d4" />
+              <Feather name={item.icon as any} size={22} color="#06b6d4" />
             </View>
             <Text style={styles.menuLabel}>{item.label}</Text>
             <View style={styles.menuRight}>
-              {item.badge && (
-                <View style={styles.menuBadge}>
-                  <Text style={styles.menuBadgeText}>{item.badge}</Text>
-                </View>
-              )}
+            
               <Feather name="chevron-right" size={20} color="#888" />
             </View>
           </TouchableOpacity>
@@ -87,24 +127,59 @@ export function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* SAVED/LIKED ITEMS SECTION */}
-      <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
-        <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#222' }}>Saved Items</Text>
-        {['hotels', 'restaurants', 'tourism'].map((cat) => (
-          <View key={cat} style={{ marginBottom: 12 }}>
-            <Text style={{ fontWeight: 'bold', color: '#06b6d4', marginBottom: 4, fontSize: 15 }}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</Text>
-            {(likes?.[cat]?.length > 0) ? likes[cat].map((item: any) => (
-              <View key={item.item_id} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 10, marginBottom: 6, flexDirection: 'row', alignItems: 'center' }}>
-                <Image source={{ uri: item.image_url }} style={{ width: 48, height: 48, borderRadius: 8, marginRight: 10, backgroundColor: '#eee' }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: 'bold', color: '#222' }}>{item.name}</Text>
-                  <Text style={{ color: '#888', fontSize: 13 }}>{item.type || ''}</Text>
-                </View>
-              </View>
-            )) : <Text style={{ color: '#888', fontSize: 13 }}>No saved {cat}.</Text>}
+      {/* SAVED/LIKED ITEMS MODAL */}
+      <Modal
+        visible={savedVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setSavedVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#f3f4f6' }}>
+          <View style={{ backgroundColor: '#06b6d4', paddingTop: 48, paddingBottom: 24, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 4 }}>Saved Places</Text>
+            <Text style={{ color: '#e0f2fe', fontSize: 15 }}>All your liked hotels, restaurants, and tourism spots</Text>
           </View>
-        ))}
-      </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 12 }}>
+            {['hotels', 'restaurants', 'tourism'].map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={{
+                  backgroundColor: selectedCat === cat ? '#06b6d4' : '#e0f2fe',
+                  borderRadius: 18,
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                  marginHorizontal: 6,
+                  elevation: selectedCat === cat ? 2 : 0,
+                }}
+                onPress={() => setSelectedCat(cat)}
+              >
+                <Text style={{ color: selectedCat === cat ? '#fff' : '#06b6d4', fontWeight: 'bold', fontSize: 15 }}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <ScrollView style={{ flex: 1, paddingHorizontal: 16 }}>
+            {likes?.[selectedCat]?.length > 0 ? likes[selectedCat].map((item: any) => {
+              const itemId = getItemId(item, selectedCat);
+              const isLiked = likes?.[selectedCat]?.some((liked: any) => getItemId(liked, selectedCat) === itemId);
+              return (
+                <View key={itemId} style={{ backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 14, flexDirection: 'row', alignItems: 'center', shadowColor: '#06b6d4', shadowOpacity: 0.10, shadowRadius: 12, elevation: 4 }}>
+                  <Image source={{ uri: item.image_url }} style={{ width: 72, height: 72, borderRadius: 14, marginRight: 16, backgroundColor: '#eee' }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 17 }}>{item.name}</Text>
+                    <Text style={{ color: '#06b6d4', fontSize: 14, fontWeight: '600', marginTop: 2 }}>{item.type || selectedCat}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => toggleFavorite(item, selectedCat)} style={{ marginLeft: 8 }}>
+                    <Heart size={32} color={isLiked ? '#ef4444' : '#888'} fill={isLiked ? '#ef4444' : 'none'} />
+                  </TouchableOpacity>
+                </View>
+              );
+            }) : <Text style={{ color: '#888', fontSize: 15, textAlign: 'center', marginTop: 32 }}>No saved {selectedCat}.</Text>}
+          </ScrollView>
+          <TouchableOpacity onPress={() => setSavedVisible(false)} style={{ alignSelf: 'center', marginVertical: 16, backgroundColor: '#06b6d4', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 12, elevation: 2 }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       <View style={styles.activitySection}>
         <Text style={styles.activityTitle}>Recent Activity</Text>

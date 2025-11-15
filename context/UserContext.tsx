@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import api from '../utils/api';
 import { useAuth } from '@clerk/clerk-expo';
 
 export interface User {
@@ -45,51 +46,56 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setError(null);
         try {
           // Try to fetch user from backend
-          const res = await fetch(`http://192.168.100.2:8000/api/users/${userId}`);
-          const data = await res.json();
+          const { data } = await api.get(`/api/users/${userId}`);
+            console.log('UserProvider: fetched user from backend', data);
           if (data.success && data.user) {
             setUser(data.user);
+            console.log('UserProvider: user set from backend', data.user);
           } else {
-            // User not found, register user in backend
-            // Try to get Clerk user info from window.Clerk or fallback to minimal info
+            // User not found, register user in backend with entered name/email
             let name = '';
             let email = '';
             try {
-              // @ts-ignore
-              const clerkUser = window.Clerk?.user;
-              if (clerkUser) {
-                name = clerkUser.fullName || clerkUser.username || '';
-                email = clerkUser.primaryEmailAddress?.emailAddress || '';
-              }
+              name = localStorage.getItem('signup_name') || '';
+              email = localStorage.getItem('signup_email') || '';
             } catch {}
-            // Fallback: try to get from localStorage or leave blank
-            await fetch('http://192.168.100.2:8000/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
+            if (userId && name && email) {
+              await api.post('/api/users', {
                 clerk_id: userId,
                 name,
                 email
-              })
-            });
-            // Re-fetch user after registration
-            const res2 = await fetch(`http://192.168.100.2:8000/api/users/${userId}`);
-            const data2 = await res2.json();
-            if (data2.success && data2.user) {
-              setUser(data2.user);
-            } else {
+              });
+              console.log('UserProvider: registered user in backend', { clerk_id: userId, name, email });
+              // Clear localStorage after registration
+              try {
+                localStorage.removeItem('signup_name');
+                localStorage.removeItem('signup_email');
+              } catch {}
+              // Re-fetch user after registration
+              const { data: data2 } = await api.get(`/api/users/${userId}`);
+              console.log('UserProvider: re-fetched user after registration', data2);
+              if (data.success && data.user) {
+                setUser(data.user);
+                console.log('UserProvider: user set from backend', data.user);
+              } else {
+                setUser(null);
+                console.log('UserProvider: user not found in backend');
+              }
               setUser(null);
+              console.log('UserProvider: missing name/email for registration');
             }
           }
         } catch (err: any) {
           setError(err.message || 'Unknown error');
           setUser(null);
+            console.log('UserProvider: error fetching/registering user', err);
         } finally {
           setLoading(false);
         }
       } else {
         setIsLoggedIn(false);
         setUser(null);
+          console.log('UserProvider: not signed in, user set to null');
       }
     };
     fetchOrRegisterUser();
@@ -99,8 +105,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`http://192.168.100.2:8000/api/users/${clerkId}/likes`);
-      const data = await res.json();
+      const { data } = await api.get(`/api/users/${clerkId}/likes`);
       if (data.success && data.liked) {
         setLikes(data.liked);
       } else {

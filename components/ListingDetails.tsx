@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import api from '../utils/api';
 import { useUser } from '../context/UserContext';
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Feather, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -11,23 +12,19 @@ export function ListingDetails({ listingId, onBack, onChatClick, listing }: { li
   const handleLikeToggle = async () => {
     if (!user) return;
     const category = listing.type?.toLowerCase() || 'hotels';
-    const url = `http://192.168.100.2:8000/api/users/${user.clerk_id}/likes/${category}`;
+    const url = `https://backend-api-2kyx.onrender.com/api/users/${user.clerk_id}/likes/${category}`;
     if (!isFavorite) {
       // Like
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          item_id: listing.item_id,
-          name: listing.name,
-          image_url: listing.image_url,
-          type: listing.type
-        })
+      await api.post(url.replace('https://backend-api-2kyx.onrender.com/api', ''), {
+        item_id: listing.item_id,
+        name: listing.name,
+        image_url: listing.image_url,
+        type: listing.type
       });
       setIsFavorite(true);
     } else {
       // Dislike
-      await fetch(`${url}/${listing.item_id}`, { method: 'DELETE' });
+      await api.delete(url.replace('https://backend-api-2kyx.onrender.com/api', '') + `/${listing.item_id}`);
       setIsFavorite(false);
     }
   };

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../utils/api';
 import { View, Text, TextInput, Image, ScrollView, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { Search, SlidersHorizontal, Heart, Star, MapPin } from 'lucide-react-native';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { useUser } from '../context/UserContext';
 
 interface Listing {
   id: number;
@@ -23,10 +25,11 @@ interface ExploreScreenProps {
 }
 
 export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
+    const { user, fetchUserLikes, isLoggedIn } = useUser();
   const [selectedCity, setSelectedCity] = useState('New York');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [searchFocused, setSearchFocused] = useState(false);
-  const [placeType, setPlaceType] = useState<'hotel' | 'restaurant' | 'tourism'>('hotel');
+  const [placeType, setPlaceType] = useState<'hotels' | 'restaurants' | 'tourism'>('hotels');
   const [places, setPlaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -66,12 +69,11 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
       setLoading(true);
       setPlaces([]);
       let endpoint = '';
-      if (placeType === 'hotel') endpoint = 'hotels';
-      else if (placeType === 'restaurant') endpoint = 'restaurants';
+      if (placeType === 'hotels') endpoint = 'hotels';
+      else if (placeType === 'restaurants') endpoint = 'restaurants';
       else if (placeType === 'tourism') endpoint = 'tourism';
       try {
-        const res = await fetch(`http://192.168.100.2:8000/api/${endpoint}?location=${encodeURIComponent(selectedCity)}&limit=20`);
-        const data = await res.json();
+        const { data } = await api.get(`/api/${endpoint}?location=${encodeURIComponent(selectedCity)}&limit=20`);
         if (data.success && Array.isArray(data.data)) {
           setPlaces(data.data);
         } else {
@@ -86,16 +88,47 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
   }, [selectedCity, placeType]);
 
   const toggleFavorite = (key: string) => {
+    if (!isLoggedIn || !user?.clerk_id) {
+      alert('You must be signed in to save favorites.');
+      return;
+    }
     setFavorites(prev => {
       const newFavorites = new Set(prev);
+      const place = places.find(
+        (item, idx) => String(item._id || item.id || item.name || idx) === key
+      );
+      if (!place) return newFavorites;
+      // Always use plural category for backend
+      let category = placeType;
+      if (category === 'hotels' || category === 'restaurants' || category === 'tourism') {
+        // ok
+      } else if (category === 'hotel') {
+        category = 'hotels';
+      } else if (category === 'restaurant') {
+        category = 'restaurants';
+      }
       if (newFavorites.has(key)) {
-        newFavorites.delete(key);
+        // Remove from favorites (dislike)
+        if (key) {
+          api.delete(`/api/users/${user.clerk_id}/likes/${category}/${key}`)
+            .then(() => fetchUserLikes(user.clerk_id));
+          newFavorites.delete(key);
+        } else {
+          console.warn('Cannot remove favorite: hotel ID (key) is undefined');
+        }
       } else {
+        // Add to favorites (like)
+        api.post(`/api/users/${user.clerk_id}/likes/${category}`, {
+          item_id: key,
+          name: place.name || place.title || '',
+          image_url: place.image || '',
+          type: category,
+        }).then(() => fetchUserLikes(user.clerk_id));
         newFavorites.add(key);
       }
       return newFavorites;
     });
-  } 
+  }
 
   return (
     <View style={styles.container}>
@@ -140,11 +173,11 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
 
       {/* Place type selector */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 10, gap: 8 }}>
-        <TouchableOpacity onPress={() => setPlaceType('hotel')} style={{ backgroundColor: placeType === 'hotel' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
-          <Text style={{ color: placeType === 'hotel' ? '#fff' : '#222', fontWeight: 'bold' }}>Hotels</Text>
+        <TouchableOpacity onPress={() => setPlaceType('hotels')} style={{ backgroundColor: placeType === 'hotels' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: placeType === 'hotels' ? '#fff' : '#222', fontWeight: 'bold' }}>Hotels</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setPlaceType('restaurant')} style={{ backgroundColor: placeType === 'restaurant' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
-          <Text style={{ color: placeType === 'restaurant' ? '#fff' : '#222', fontWeight: 'bold' }}>Restaurants</Text>
+        <TouchableOpacity onPress={() => setPlaceType('restaurants')} style={{ backgroundColor: placeType === 'restaurants' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
+          <Text style={{ color: placeType === 'restaurants' ? '#fff' : '#222', fontWeight: 'bold' }}>Restaurants</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setPlaceType('tourism')} style={{ backgroundColor: placeType === 'tourism' ? '#2dd4bf' : '#f3f4f6', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8 }}>
           <Text style={{ color: placeType === 'tourism' ? '#fff' : '#222', fontWeight: 'bold' }}>Tourist Attractions</Text>
@@ -153,19 +186,19 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
       {/* Real places list from backend */}
       {loading ? (
         <ActivityIndicator size="large" color="#2dd4bf" style={{ marginTop: 24 }} />
-      ) : (
-        <ScrollView style={styles.listingsScroll}>
-          {places.length === 0 && (
-            <Text style={{ textAlign: 'center', color: '#888', marginTop: 32 }}>No results found.</Text>
-          )}
-          {places.map((item, idx) => {
-            // Always use a string key for consistency
-            const key = String(item._id || item.id || item.name || idx);
-            return (
-              <Animated.View
-                key={key}
-                style={{
-                  opacity: cardAnim[idx % cardAnim.length],
+      try {
+        const { data } = await api.get(`/api/users/${clerkId}/likes`);
+        if (data.success && data.liked) {
+          setLikes(data.liked);
+        } else {
+          setLikes({});
+        }
+      } catch (err: any) {
+        setError(err.message || 'Unknown error');
+        setLikes({});
+      } finally {
+        setLoading(false);
+      }
                   transform: [{ translateY: cardAnim[idx % cardAnim.length].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
                 }}
               >
@@ -178,6 +211,7 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
                     <TouchableOpacity
                       style={styles.favoriteButton}
                       onPress={() => toggleFavorite(key)}
+                      disabled={!isLoggedIn || !user?.clerk_id}
                     >
                       <Heart size={20} color={favorites.has(key) ? '#ef4444' : '#888'} />
                     </TouchableOpacity>
@@ -204,40 +238,41 @@ export function ExploreScreen({ onListingClick }: ExploreScreenProps) {
                     {item.distance && <Text style={styles.listingDistance}>{item.distance}</Text>}
                     {item.price && (
                       <Text style={styles.listingPrice}>
-                        ${item.price}
-                        <Text style={styles.listingPriceNight}> / night</Text>
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-            );
-          })}
-        </ScrollView>
-      )}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  searchHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  searchBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
+                        return (
+                          <ScrollView style={styles.container}>
+                            {/* ...existing code... */}
+                            <View style={styles.placesSection}>
+                              {loading ? (
+                                <ActivityIndicator size="large" color="#06b6d4" style={{ marginTop: 40 }} />
+                              ) : (
+                                places.map((place, idx) => {
+                                  const key = String(place._id || place.id || place.name || idx);
+                                  // Check if liked in context likes
+                                  const isLiked = (user?.liked?.[placeType]?.some((item: any) => item.item_id === key));
+                                  return (
+                                    <Animated.View key={key} style={{ ...styles.card, opacity: cardAnim[idx % cardAnim.length] }}>
+                                      <TouchableOpacity onPress={() => onListingClick(place.id)}>
+                                        <Image source={{ uri: place.image }} style={styles.cardImage} />
+                                        <View style={styles.cardContent}>
+                                          <Text style={styles.cardTitle}>{place.title || place.name}</Text>
+                                          <Text style={styles.cardLocation}><MapPin size={16} color="#06b6d4" /> {place.location}</Text>
+                                          <View style={styles.cardRow}>
+                                            <Text style={styles.cardPrice}>${place.price}/night</Text>
+                                            <Text style={styles.cardRating}><Star size={16} color="#facc15" /> {place.rating} ({place.reviews})</Text>
+                                          </View>
+                                        </View>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity style={styles.heartBtn} onPress={() => toggleFavorite(key)}>
+                                        {isLiked ? <Heart size={24} color="#ef4444" fill="#ef4444" /> : <Heart size={24} color="#888" />}
+                                      </TouchableOpacity>
+                                    </Animated.View>
+                                  );
+                                })
+                              )}
+                            </View>
+                            {/* ...existing code... */}
+                          </ScrollView>
+                        );
     alignItems: 'center',
     backgroundColor: '#f3f4f6',
     borderRadius: 24,
@@ -254,30 +289,29 @@ const styles = StyleSheet.create({
     color: '#222',
   },
   filterButton: {
-    padding: 10,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 24,
-  },
-  citiesScroll: {
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  cityChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 18,
-    backgroundColor: '#f3f4f6',
-    marginRight: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cityChipSelected: {
-    backgroundColor: '#2dd4bf',
-    shadowColor: '#2dd4bf',
-    shadowOpacity: 0.2,
+      {loading ? (
+        <ActivityIndicator size="large" color="#2dd4bf" style={{ marginTop: 24 }} />
+      ) : places.length === 0 ? (
+        <Text style={{ textAlign: 'center', color: '#888', marginTop: 32 }}>No results found.</Text>
+      ) : (
+        <ScrollView style={styles.listingsScroll}>
+          {places.map((item, idx) => {
+            // Always use a string key for consistency
+            const key = String(item._id || item.id || item.name || idx);
+            return (
+              <Animated.View
+                key={key}
+                style={{
+                  opacity: cardAnim[idx % cardAnim.length],
+                  transform: [{ translateY: cardAnim[idx % cardAnim.length].interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+                }}
+              >
+                {/* ...existing code... */}
+              </Animated.View>
+            );
+          })}
+        </ScrollView>
+      )}
     shadowRadius: 4,
   },
   cityImage: {

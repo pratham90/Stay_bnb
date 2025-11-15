@@ -9,7 +9,7 @@ import { PlacesProvider, usePlaces } from '../../context/PlacesContext';
 import { useUser } from '../../context/UserContext';
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: '#fff' },
   mapArea: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   },
   searchIconBtn: {
     marginLeft: 10,
-    backgroundColor: '#4C6FFF',
+    backgroundColor: '#47afe8ff',
     borderRadius: 16,
     padding: 8,
     alignItems: 'center',
@@ -67,8 +67,8 @@ const styles = StyleSheet.create({
     left: 24,
     zIndex: 21,
     backgroundColor: '#f4f6fb',
-    paddingHorizontal: 18,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     borderRadius: 18,
     fontSize: 15,
     color: '#4C6FFF',
@@ -140,8 +140,8 @@ function MapTabInner(props: any) {
 
   const handleSearch = async () => {
     const showNearby = getShowNearbyValue(nearbyType);
+    setShowResult(true); // Always show map area, just show loading indicator
     await fetchMap(location, user?.clerk_id, showNearby);
-    setShowResult(true);
   };
 
   return (
@@ -160,7 +160,7 @@ function MapTabInner(props: any) {
           />
           <TouchableOpacity
             style={styles.searchIconBtn}
-            onPress={async () => { setShowResult(false); await handleSearch(); setShowResult(true); }}
+            onPress={handleSearch}
             activeOpacity={0.85}
           >
             <Search size={20} color="#fff" />
